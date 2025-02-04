@@ -1,158 +1,315 @@
 import 'package:flutter/material.dart';
+import 'package:curved_navigation_bar/curved_navigation_bar.dart';
+import 'medical_management_screen.dart';
+import 'health_monitor_screen.dart';
+import 'chatbot_screen.dart';
+import 'nearby_assistance_screen.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/location_service.dart';
 
 class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
   @override
   _HomeScreenState createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  int _currentIndex = 2; // Default active index is the Chatbot
+class AppData {
+  static final AppData _instance = AppData._internal();
+  factory AppData() => _instance;
+  AppData._internal();
 
-  final List<Widget> _screens = [
-    MedicalManagementScreen(),
-    HealthMonitorScreen(),
-    ChatbotScreen(),
-    NearbyAssistanceScreen(),
-    AccountDetailsScreen(),
-  ];
+  LatLng? userLocation;
+  List<dynamic> nearbyHospitals = [];
+  bool isDataFetched = false;
+
+  Future<void> fetchData() async {
+    final locationService = LocationService();
+    var position = await locationService.getCurrentLocation();
+    if (position != null) {
+      userLocation = LatLng(position.latitude, position.longitude);
+      nearbyHospitals = await locationService.getNearbyHospitals(
+        userLocation!.latitude,
+        userLocation!.longitude,
+        5000, // Default search radius
+      );
+      isDataFetched = true;
+    }
+  }
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _currentIndex = 0;
+  bool _showNavBar = true;
+  final GlobalKey<CurvedNavigationBarState> _bottomNavKey = GlobalKey();
+  late List<Widget> _screens;
+
+  @override
+  void initState() {
+    super.initState();
+    _screens = [
+      const HomeContentScreen(),
+      const MedicalManagementScreen(),
+      ChatbotScreen(
+        onClose: () => _resetToHomeScreen(),
+      ),
+      const HealthMonitorScreen(),
+      const NearbyAssistanceScreen(),
+    ];
+
+    // Pre-fetch data in the background
+    AppData().fetchData();
+  }
+
+  void _resetToHomeScreen() {
+    setState(() {
+      _currentIndex = 0;
+      _showNavBar = true;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.black, // Dark theme
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.menu, color: Colors.black),
-          onPressed: () {},
-        ),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              'assets/logo.png',
-              height: 40,
-            ),
-            SizedBox(width: 8),
-            Text(
-              'MediSync',
-              style: GoogleFonts.poppins(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
-          ],
+          icon: Icon(
+            _currentIndex == 0 ? Icons.menu : Icons.arrow_back,
+            color: Colors.white, // White icon for dark theme
+          ),
+          onPressed: () {
+            if (_currentIndex == 0) {
+              // Open drawer or menu logic here
+            } else {
+              _resetToHomeScreen();
+            }
+          },
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.notifications, color: Colors.red),
+            icon: const Icon(Icons.sos, color: Colors.red),
             onPressed: () {},
           ),
         ],
       ),
       body: _screens[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
-        items: [
-          BottomNavigationBarItem(
-            icon:
-                _buildNavIcon(0, Icons.medical_services, "Medical Management"),
-            label: '',
+      bottomNavigationBar: _showNavBar
+          ? CurvedNavigationBar(
+              key: _bottomNavKey,
+              index: _currentIndex,
+              height: 60.0,
+              items: const <Widget>[
+                Icon(Icons.medical_services, size: 30, color: Colors.orange),
+                Icon(Icons.health_and_safety, size: 30, color: Colors.orange),
+                Icon(Icons.chat, size: 30, color: Colors.orange),
+                Icon(Icons.monitor_heart, size: 30, color: Colors.orange),
+                Icon(Icons.location_on, size: 30, color: Colors.orange),
+              ],
+              color: Colors.black, // Dark theme
+              buttonBackgroundColor: Colors.black, // Dark theme
+              backgroundColor: Colors.grey, // Dark theme
+              animationCurve: Curves.easeInOut,
+              animationDuration: const Duration(milliseconds: 800),
+              onTap: (index) {
+                setState(() {
+                  _currentIndex = index;
+                  _showNavBar = index != 2;
+                });
+              },
+            )
+          : null,
+    );
+  }
+}
+
+class HomeContentScreen extends StatelessWidget {
+  const HomeContentScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey[100], // Light background
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: ListView(
+            children: [
+              _buildHeader(),
+              const SizedBox(height: 20),
+              _buildCaloriesCard(),
+              const SizedBox(height: 20),
+              _buildHealthReminder(),
+              const SizedBox(height: 20),
+              _buildLatestArticles(),
+            ],
           ),
-          BottomNavigationBarItem(
-            icon: _buildNavIcon(1, Icons.health_and_safety, "Health Monitor"),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: _buildNavIcon(2, Icons.chat, "Chatbot"),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: _buildNavIcon(3, Icons.location_on, "Nearby Assistance"),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: _buildNavIcon(4, Icons.account_circle, "Account Details"),
-            label: '',
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildNavIcon(int index, IconData icon, String tooltip) {
-    final bool isActive = _currentIndex == index;
-    return Tooltip(
-      message: tooltip,
+  Widget _buildHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          "Hello Vikas,",
+          style: GoogleFonts.poppins(
+            fontSize: 26,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCaloriesCard() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(15),
       child: Container(
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isActive ? Colors.blue.shade100 : Colors.transparent,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(15),
-          boxShadow: isActive
-              ? [
-                  BoxShadow(
-                    color: Colors.blue.shade200,
-                    blurRadius: 10,
-                    offset: Offset(0, 3),
-                  )
-                ]
-              : [],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 8,
+              offset: Offset(0, 4),
+            ),
+          ],
         ),
-        padding: EdgeInsets.all(8),
-        child: Icon(
-          icon,
-          size: isActive ? 36 : 28,
-          color: isActive ? Colors.blue : Colors.grey,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "🍽 Calories",
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  "1786",
+                  style: GoogleFonts.poppins(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  "Cal/Day",
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+            Icon(Icons.bar_chart, size: 50, color: Colors.black),
+          ],
         ),
       ),
     );
   }
-}
 
-// Placeholder widgets for the different screens
-class MedicalManagementScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Center(child: Text("Medical Management Screen"));
+  Widget _buildHealthReminder() {
+    return _buildCard(
+      title: "Blood test",
+      subtitle: "Duis hendrerit ex nibh, non",
+      date: "23 Mar",
+      icon: Icons.bloodtype,
+      color: Colors.redAccent,
+    );
   }
-}
 
-class HealthMonitorScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Center(child: Text("Health Monitor Screen"));
+  Widget _buildLatestArticles() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Latest Articles",
+          style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 10),
+        _buildCard(
+          title: "Blood test",
+          subtitle: "Duis hendrerit ex nibh, non",
+          date: "23 Mar",
+          icon: Icons.bloodtype,
+          color: Colors.redAccent,
+        ),
+      ],
+    );
   }
-}
 
-class ChatbotScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Center(child: Text("Chatbot Screen"));
-  }
-}
-
-class NearbyAssistanceScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Center(child: Text("Nearby Assistance Screen"));
-  }
-}
-
-class AccountDetailsScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Center(child: Text("Account Details Screen"));
+  Widget _buildCard({
+    required String title,
+    required String subtitle,
+    required String date,
+    required IconData icon,
+    required Color color,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(15),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.white, size: 40),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: Colors.white70,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      const Icon(Icons.calendar_today,
+                          size: 14, color: Colors.white),
+                      const SizedBox(width: 5),
+                      Text(
+                        date,
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
