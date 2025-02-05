@@ -4,9 +4,8 @@ import 'medical_management_screen.dart';
 import 'health_monitor_screen.dart';
 import 'chatbot_screen.dart';
 import 'nearby_assistance_screen.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/location_service.dart';
+import '../utils/location_data.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,34 +14,11 @@ class HomeScreen extends StatefulWidget {
   _HomeScreenState createState() => _HomeScreenState();
 }
 
-class AppData {
-  static final AppData _instance = AppData._internal();
-  factory AppData() => _instance;
-  AppData._internal();
-
-  LatLng? userLocation;
-  List<dynamic> nearbyHospitals = [];
-  bool isDataFetched = false;
-
-  Future<void> fetchData() async {
-    final locationService = LocationService();
-    var position = await locationService.getCurrentLocation();
-    if (position != null) {
-      userLocation = LatLng(position.latitude, position.longitude);
-      nearbyHospitals = await locationService.getNearbyHospitals(
-        userLocation!.latitude,
-        userLocation!.longitude,
-        5000, // Default search radius
-      );
-      isDataFetched = true;
-    }
-  }
-}
-
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   bool _showNavBar = true;
   final GlobalKey<CurvedNavigationBarState> _bottomNavKey = GlobalKey();
+  final AppData _appData = AppData();
   late List<Widget> _screens;
 
   @override
@@ -59,7 +35,11 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
 
     // Pre-fetch data in the background
-    AppData().fetchData();
+    _preloadData();
+  }
+
+  Future<void> _preloadData() async {
+    await _appData.fetchData();
   }
 
   void _resetToHomeScreen() {
@@ -110,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
               color: Colors.black, // Dark theme
               buttonBackgroundColor: Colors.black, // Dark theme
-              backgroundColor: Colors.grey, // Dark theme
+              backgroundColor: const Color.fromARGB(218, 0, 0, 0), // Dark theme
               animationCurve: Curves.easeInOut,
               animationDuration: const Duration(milliseconds: 800),
               onTap: (index) {

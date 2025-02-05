@@ -1,387 +1,544 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:url_launcher/url_launcher.dart'; // For opening Google Maps
 import '../services/location_service.dart';
+import '../utils/location_data.dart';
+import 'dart:async';
 
 class NearbyAssistanceScreen extends StatefulWidget {
   const NearbyAssistanceScreen({super.key});
 
   @override
-  _NearbyAssistanceScreenState createState() => _NearbyAssistanceScreenState();
+  State<NearbyAssistanceScreen> createState() => _NearbyAssistanceScreenState();
 }
 
 class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
+  final AppData _appData = AppData();
   final LocationService _locationService = LocationService();
-  LatLng? _userLocation;
-  double _searchRadius = 5000; // Default 5 km
-  double _zoom = 13; // Initial zoom level
-  List<dynamic> _nearbyHospitals = [];
   bool _isLoading = false;
   int _selectedHospitalIndex = -1;
   bool _showHospitalInfo = false;
   bool _showHospitalsList = false;
 
+  // Move colors to a separate class for better organization
+  static const _colors = _NearbyAssistanceColors();
+
   @override
   void initState() {
     super.initState();
-    _fetchUserLocationAndHospitals();
+    _initializeData();
   }
 
-  Future<void> _fetchUserLocationAndHospitals() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    var position = await _locationService.getCurrentLocation();
-    if (position != null) {
-      setState(() {
-        _userLocation = LatLng(position.latitude, position.longitude);
-      });
-
-      await _fetchHospitals();
-    } else {
-      setState(() {
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text("Failed to get location. Please enable GPS.")),
-      );
+  Future<void> _initializeData() async {
+    if (!_appData.isDataFetched) {
+      await _fetchData();
     }
   }
 
-  Future<void> _fetchHospitals() async {
-    if (_userLocation != null) {
-      List<dynamic> hospitals = await _locationService.getNearbyHospitals(
-        _userLocation!.latitude,
-        _userLocation!.longitude,
-        _searchRadius,
-      );
+  Future<void> _fetchData() async {
+    if (mounted) {
+      setState(() => _isLoading = true);
+    }
 
-      setState(() {
-        _nearbyHospitals = hospitals;
-        _isLoading = false;
-      });
+    try {
+      await _appData.fetchData();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error fetching data: ${e.toString()}')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
-  void _onSearchRadiusChanged(double value) {
-    setState(() {
-      _searchRadius = value * 1000; // Convert km to meters
-      _zoom = _calculateZoomLevel(_searchRadius);
-    });
-    _fetchHospitals();
-  }
-
-  double _calculateZoomLevel(double radius) {
-    if (radius <= 1000) return 15;
-    if (radius <= 5000) return 13;
-    if (radius <= 10000) return 11;
-    return 9;
+  Future<void> _onSearchRadiusChanged(double value) async {
+    if (mounted) {
+      setState(() => _appData.searchRadius = value * 1000);
+    }
+    await _fetchData();
   }
 
   void _onHospitalPinTap(int index) {
-    setState(() {
-      _selectedHospitalIndex = index;
-      _showHospitalInfo = true;
-    });
+    if (mounted) {
+      setState(() {
+        _selectedHospitalIndex = index;
+        _showHospitalInfo = true;
+        _showHospitalsList = false;
+      });
+    }
   }
 
   void _closeModals() {
-    setState(() {
-      _showHospitalInfo = false;
-      _showHospitalsList = false;
-    });
+    if (mounted) {
+      setState(() {
+        _showHospitalInfo = false;
+        _showHospitalsList = false;
+        _selectedHospitalIndex = -1;
+      });
+    }
   }
 
   void _toggleHospitalsList() {
-    setState(() {
-      _showHospitalsList = !_showHospitalsList;
-    });
+    if (mounted) {
+      setState(() {
+        _showHospitalsList = !_showHospitalsList;
+        if (_showHospitalsList) {
+          _showHospitalInfo = false;
+        }
+      });
+    }
   }
 
-  // Function to open Google Maps with directions
-  Future<void> _navigateToHospital(LatLng destination) async {
-    if (_userLocation == null) return;
-
-    final String googleMapsUrl =
-        "https://www.google.com/maps/dir/?api=1&origin=${_userLocation!.latitude},${_userLocation!.longitude}&destination=${destination.latitude},${destination.longitude}&travelmode=driving";
-
-    if (await canLaunch(googleMapsUrl)) {
-      await launch(googleMapsUrl);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Could not launch Google Maps")),
-      );
+  Future<void> _navigateToHospital(double lat, double lng) async {
+    try {
+      await _locationService.launchGoogleMapsNavigation(lat, lng);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Error launching navigation: ${e.toString()}')),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    return Theme(
+      data: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: _colors.background,
+        cardColor: _colors.card,
+      ),
+      child: Scaffold(
+        body: Stack(
+          children: [
+            _buildMap(),
+            if (_showHospitalInfo || _showHospitalsList)
+              _buildGradientOverlay(),
+            _buildSearchRadiusSlider(),
+            if (_showHospitalInfo && _selectedHospitalIndex != -1)
+              _buildHospitalInfo(),
+            if (_showHospitalsList) _buildHospitalsList(),
+            if (!_showHospitalsList && !_showHospitalInfo)
+              _buildListToggleButton(),
+            if (_isLoading) _buildLoadingIndicator(),
+          ],
+        ),
+      ),
+    );
+  }
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          // Map Section
-          _userLocation == null
-              ? const Center(child: CircularProgressIndicator())
-              : FlutterMap(
-                  options: MapOptions(
-                    initialCenter: _userLocation!,
-                    initialZoom: _zoom,
-                  ),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-                    ),
-                    MarkerLayer(
-                      markers: [
-                        // User Location Marker
-                        Marker(
-                          width: 50,
-                          height: 50,
-                          point: _userLocation!,
-                          child: const Icon(Icons.my_location,
-                              color: Colors.blue, size: 40),
-                        ),
-                        // Hospital Markers
-                        ..._nearbyHospitals.asMap().entries.map((entry) {
-                          final index = entry.key;
-                          final hospital = entry.value;
-                          final LatLng hospitalLocation = LatLng(
-                            hospital["geometry"]["coordinates"][1],
-                            hospital["geometry"]["coordinates"][0],
-                          );
-                          return Marker(
-                            width: 50,
-                            height: 50,
-                            point: hospitalLocation,
-                            child: GestureDetector(
-                              onTap: () => _onHospitalPinTap(index),
-                              child: Icon(
-                                Icons.location_on_rounded,
-                                color: _selectedHospitalIndex == index
-                                    ? Colors.red
-                                    : Colors.green,
-                                size: 40,
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ],
-                    ),
+  Widget _buildMap() {
+    if (_appData.userLocation == null) {
+      return Center(child: CircularProgressIndicator(color: _colors.primary));
+    }
+
+    return Stack(
+      children: [
+        // The map with grayscale effect
+        FlutterMap(
+          options: MapOptions(
+            initialCenter: _appData.userLocation!,
+            initialZoom: 16,
+            onTap: (_, __) => _closeModals(),
+            keepAlive: true,
+          ),
+          children: [
+            _buildTileLayer(),
+            _buildMarkerLayer(),
+          ],
+        ),
+        // The gradient overlay at the bottom
+        Positioned.fill(
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
+              height: MediaQuery.of(context).size.height *
+                  0.4, // Adjust this to control the fade area height
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent, // Top part: transparent
+                    Colors.black.withOpacity(0.9), // Fading into black
                   ],
                 ),
-
-          // Darken the map when modals are shown
-          if (_showHospitalInfo || _showHospitalsList)
-            GestureDetector(
-              onTap: _closeModals,
-              child: Container(
-                color: Colors.black.withOpacity(0.5),
               ),
             ),
+          ),
+        ),
+      ],
+    );
+  }
 
-          // Search Radius Slider
-          Positioned(
-            top: 20,
-            left: 20,
-            right: 20,
-            child: Container(
-              padding: const EdgeInsets.all(5),
-              decoration: BoxDecoration(
-                color: isDarkMode ? Colors.grey[800] : Colors.white,
-                borderRadius: BorderRadius.circular(8),
+  TileLayer _buildTileLayer() {
+    return TileLayer(
+      urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    );
+  }
+
+  MarkerLayer _buildMarkerLayer() {
+    return MarkerLayer(
+      markers: [
+        _buildUserLocationMarker(),
+        ..._buildHospitalMarkers(),
+      ],
+    );
+  }
+
+  Marker _buildUserLocationMarker() {
+    return Marker(
+      width: 30,
+      height: 30,
+      point: _appData.userLocation!,
+      child: Icon(Icons.my_location, color: _colors.primary, size: 40),
+    );
+  }
+
+  List<Marker> _buildHospitalMarkers() {
+    return _appData.nearbyHospitals.asMap().entries.map((entry) {
+      final index = entry.key;
+      final hospital = entry.value;
+      final coordinates = hospital["geometry"]["coordinates"] as List;
+      final location = LatLng(coordinates[1], coordinates[0]);
+
+      return Marker(
+        width: 50,
+        height: 50,
+        point: location,
+        child: GestureDetector(
+          onTap: () => _onHospitalPinTap(index),
+          child: Icon(
+            Icons.pin_drop_sharp,
+            color: _selectedHospitalIndex == index ? Colors.red : Colors.green,
+            size: 40,
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  Widget _buildGradientOverlay() {
+    return Positioned.fill(
+      child: GestureDetector(
+        onTap: _closeModals,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withOpacity(0.1),
+                Colors.black.withOpacity(0.5),
+                Colors.black.withOpacity(0.7),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchRadiusSlider() {
+    return Positioned(
+      top: 40,
+      left: 20,
+      right: 20,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: _colors.card,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 8,
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Text(
+              "Search Radius (km)",
+              style: TextStyle(color: _colors.text, fontSize: 16),
+            ),
+            Slider(
+              value: _appData.searchRadius / 1000,
+              min: 5,
+              max: 50,
+              divisions: 9,
+              activeColor: _colors.primary,
+              label: "${(_appData.searchRadius / 1000).toStringAsFixed(1)} km",
+              onChanged: _onSearchRadiusChanged,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHospitalInfo() {
+    final hospital = _appData.nearbyHospitals[_selectedHospitalIndex];
+    final name = hospital["properties"]["name"] ?? "Unknown";
+    final address =
+        hospital["properties"]["address_line1"] ?? "No address available";
+    final distance = hospital["properties"]["distance"];
+
+    return Positioned(
+      bottom: 20,
+      left: 20,
+      right: 20,
+      child: GestureDetector(
+        onTap: () {},
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: _colors.card,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 10,
+                spreadRadius: 2,
               ),
-              child: Column(
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    "Search Radius (km)",
-                    style: TextStyle(
-                      color: isDarkMode ? Colors.white : Colors.black,
+                  Expanded(
+                    child: Text(
+                      name,
+                      style: TextStyle(
+                        color: _colors.text,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
                     ),
                   ),
-                  Slider(
-                    value: _searchRadius / 1000,
-                    min: 5,
-                    max: 50,
-                    divisions: 9,
-                    label: "${(_searchRadius / 1000).toStringAsFixed(1)} km",
-                    onChanged: _onSearchRadiusChanged,
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        color: _colors.text.withOpacity(0.7),
+                        onPressed: _closeModals,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.directions),
+                        color: _colors.primary,
+                        onPressed: () {
+                          final coordinates =
+                              hospital["geometry"]["coordinates"] as List;
+                          _navigateToHospital(coordinates[1], coordinates[0]);
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ),
-          ),
-
-          // Nearby Hospitals Button
-          Positioned(
-            bottom: 20,
-            left: 20,
-            right: 20,
-            child: ElevatedButton(
-              onPressed: _toggleHospitalsList,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isDarkMode ? Colors.grey[800] : Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: Text(
-                "Nearby Hospitals",
+              const SizedBox(height: 12),
+              Text(
+                address,
                 style: TextStyle(
-                  fontSize: 16,
-                  color: isDarkMode ? Colors.white : Colors.black,
+                  color: _colors.text.withOpacity(0.8),
+                  fontSize: 14,
                 ),
               ),
+              if (distance != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  "Distance: ${(distance / 1000).toStringAsFixed(1)} km",
+                  style: TextStyle(
+                    color: _colors.primary,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHospitalsList() {
+    return Positioned(
+      bottom: 20,
+      left: 20,
+      right: 20,
+      child: GestureDetector(
+        onTap: () {},
+        child: Container(
+          height: MediaQuery.of(context).size.height * 0.6,
+          decoration: BoxDecoration(
+            color: _colors.card,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 10,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              _buildHospitalsListHeader(),
+              Expanded(
+                child: _buildHospitalsListView(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHospitalsListHeader() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            "Nearby Hospitals",
+            style: TextStyle(
+              color: _colors.text,
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
             ),
           ),
-
-          // Hospital Information Overlay
-          if (_showHospitalInfo && _selectedHospitalIndex != -1)
-            Positioned(
-              bottom: 20,
-              left: 20,
-              right: 20,
-              child: GestureDetector(
-                onTap: () {}, // Prevent closing when tapping inside the modal
-                child: AnimatedOpacity(
-                  opacity: _showHospitalInfo ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 300),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: isDarkMode ? Colors.grey[800] : Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 10,
-                          spreadRadius: 5,
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _nearbyHospitals[_selectedHospitalIndex]["properties"]
-                                  ["name"] ??
-                              "Unknown",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                            color: isDarkMode ? Colors.white : Colors.black,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _nearbyHospitals[_selectedHospitalIndex]["properties"]
-                                  ["address_line1"] ??
-                              "No address available",
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: isDarkMode ? Colors.white : Colors.black,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-          // Nearby Hospitals List
-          if (_showHospitalsList)
-            Positioned(
-              bottom: 20,
-              left: 20,
-              right: 20,
-              child: GestureDetector(
-                onTap: () {}, // Prevent closing when tapping inside the modal
-                child: AnimatedOpacity(
-                  opacity: _showHospitalsList ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 300),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: isDarkMode ? Colors.grey[800] : Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 10,
-                          spreadRadius: 5,
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          "Nearby Hospitals",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                            color: isDarkMode ? Colors.white : Colors.black,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          height: 200, // Adjust height as needed
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: _nearbyHospitals.length,
-                            itemBuilder: (context, index) {
-                              final hospital = _nearbyHospitals[index];
-                              final name =
-                                  hospital["properties"]["name"] ?? "Unknown";
-                              final address = hospital["properties"]
-                                      ["address_line1"] ??
-                                  "No address available";
-                              final LatLng hospitalLocation = LatLng(
-                                hospital["geometry"]["coordinates"][1],
-                                hospital["geometry"]["coordinates"][0],
-                              );
-
-                              return ListTile(
-                                title: Text(
-                                  name,
-                                  style: TextStyle(
-                                    color: isDarkMode
-                                        ? Colors.white
-                                        : Colors.black,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  address,
-                                  style: TextStyle(
-                                    color: isDarkMode
-                                        ? Colors.white70
-                                        : Colors.black54,
-                                  ),
-                                ),
-                                trailing: IconButton(
-                                  icon: Icon(
-                                    Icons.directions,
-                                    color:
-                                        isDarkMode ? Colors.white : Colors.blue,
-                                  ),
-                                  onPressed: () =>
-                                      _navigateToHospital(hospitalLocation),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          IconButton(
+            icon: const Icon(Icons.close),
+            color: _colors.text.withOpacity(0.7),
+            onPressed: _closeModals,
+          ),
         ],
       ),
     );
   }
+
+  Widget _buildHospitalsListView() {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: _appData.nearbyHospitals.length,
+      itemBuilder: (context, index) {
+        final hospital = _appData.nearbyHospitals[index];
+        final name = hospital["properties"]["name"] ?? "Unknown";
+        final address =
+            hospital["properties"]["address_line1"] ?? "No address available";
+        final distance = hospital["properties"]["distance"];
+        final distanceText = distance != null
+            ? "${(distance / 1000).toStringAsFixed(1)} km"
+            : "Unknown distance";
+
+        return Card(
+          color: _colors.surface,
+          margin: const EdgeInsets.only(bottom: 12),
+          child: ListTile(
+            contentPadding: const EdgeInsets.all(16),
+            title: Text(
+              name,
+              style: TextStyle(
+                color: _colors.text,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 8),
+                Text(
+                  address,
+                  style: TextStyle(
+                    color: _colors.text.withOpacity(0.8),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  distanceText,
+                  style: TextStyle(
+                    color: _colors.primary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            trailing: IconButton(
+              icon: const Icon(Icons.directions),
+              color: _colors.primary,
+              onPressed: () {
+                final coordinates = hospital["geometry"]["coordinates"] as List;
+                _navigateToHospital(coordinates[1], coordinates[0]);
+              },
+            ),
+            onTap: () => _onHospitalPinTap(index),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildListToggleButton() {
+    return Positioned(
+      bottom: 20,
+      left: 20,
+      right: 20,
+      child: ElevatedButton(
+        onPressed: _toggleHospitalsList,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _colors.card,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 4,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.list_alt, color: _colors.text),
+            const SizedBox(width: 8),
+            Text(
+              "Nearby Hospitals",
+              style: TextStyle(
+                color: _colors.text,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingIndicator() {
+    return Container(
+      color: _colors.background.withOpacity(0.7),
+      child: Center(
+        child: CircularProgressIndicator(
+          color: _colors.primary,
+        ),
+      ),
+    );
+  }
+}
+
+class _NearbyAssistanceColors {
+  const _NearbyAssistanceColors();
+
+  final Color background = const Color(0xFF121212);
+  final Color surface = const Color(0xFF1E1E1E);
+  final Color primary = const Color(0xFF2196F3);
+  final Color card = const Color(0xFF2C2C2C);
+  final Color text = Colors.white;
 }

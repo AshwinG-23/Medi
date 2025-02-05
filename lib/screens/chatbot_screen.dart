@@ -59,13 +59,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Chatbot'),
-        leading: IconButton(
-          icon: Icon(Icons.close),
-          onPressed: widget.onClose,
-        ),
-      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

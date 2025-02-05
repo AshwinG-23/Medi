@@ -1,11 +1,11 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:url_launcher/url_launcher.dart';
 
 class LocationService {
-  final String geoapifyApiKey = "729d2fa8846945deb1088c6e1666d625"; // Replace with your API Key
+  final String geoapifyApiKey = "729d2fa8846945deb1088c6e1666d625";
 
-  /// Get the current location of the user
   Future<Position?> getCurrentLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) return null;
@@ -15,7 +15,6 @@ class LocationService {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) return null;
     }
-
     if (permission == LocationPermission.deniedForever) return null;
 
     try {
@@ -25,11 +24,10 @@ class LocationService {
     }
   }
 
-  /// Fetch nearby hospitals based on latitude and longitude
   Future<List<dynamic>> getNearbyHospitals(
       double latitude, double longitude, double radius) async {
     final String url =
-        "https://api.geoapify.com/v2/places?categories=healthcare.hospital&filter=circle:$longitude,$latitude,$radius&limit=10&apiKey=$geoapifyApiKey";
+        "https://api.geoapify.com/v2/places?categories=healthcare.hospital&filter=circle:$longitude,$latitude,$radius&limit=20&apiKey=$geoapifyApiKey";
 
     try {
       final response = await http.get(Uri.parse(url));
@@ -37,8 +35,23 @@ class LocationService {
         final data = json.decode(response.body);
         List<dynamic> hospitals = data['features'];
 
+        // Add distance calculation and sort by distance
+        hospitals = hospitals.map((hospital) {
+          final hospitalLat = hospital['geometry']['coordinates'][1];
+          final hospitalLng = hospital['geometry']['coordinates'][0];
+          final distance = Geolocator.distanceBetween(
+            latitude,
+            longitude,
+            hospitalLat,
+            hospitalLng,
+          );
+          hospital['properties']['distance'] = distance;
+          return hospital;
+        }).toList();
+
         hospitals.sort((a, b) {
-          return a['properties']['name'].compareTo(b['properties']['name']);
+          return (a['properties']['distance'] as double)
+              .compareTo(b['properties']['distance'] as double);
         });
 
         return hospitals;
@@ -46,6 +59,14 @@ class LocationService {
       return [];
     } catch (e) {
       return [];
+    }
+  }
+
+  Future<void> launchGoogleMapsNavigation(double lat, double lng) async {
+    final url =
+        'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving';
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url));
     }
   }
 }
