@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'medical_management_screen.dart';
 import 'health_monitor_screen.dart';
 import 'chatbot_screen.dart';
 import 'nearby_assistance_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../utils/location_data.dart';
+import 'login_screen.dart'; // Import your login screen
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,6 +23,9 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<CurvedNavigationBarState> _bottomNavKey = GlobalKey();
   final AppData _appData = AppData();
   late List<Widget> _screens;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  Map<String, dynamic>? _userData;
 
   @override
   void initState() {
@@ -28,18 +34,41 @@ class _HomeScreenState extends State<HomeScreen> {
       const HomeContentScreen(),
       const MedicalManagementScreen(),
       ChatbotScreen(
+        userId: _auth.currentUser?.uid ?? '', 
         onClose: () => _resetToHomeScreen(),
       ),
       const HealthMonitorScreen(),
       const NearbyAssistanceScreen(),
     ];
 
-    // Pre-fetch data in the background
-    _preloadData();
+    // Fetch user data from Firestore
+    _fetchUserData();
   }
+  
+  Future<void> _fetchUserData() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      // If the user is not logged in, navigate to the login screen
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+      );
+      return;
+    }
 
-  Future<void> _preloadData() async {
-    await _appData.fetchData();
+    final userDoc = await _firestore.collection('users').doc(user.uid).get();
+    if (userDoc.exists) {
+      setState(() {
+        _userData = userDoc.data();
+      });
+    }
+  }
+  Future<void> _logout() async {
+    await _auth.signOut();
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+    );
   }
 
   void _resetToHomeScreen() {
@@ -55,17 +84,14 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         backgroundColor: Colors.black, // Dark theme
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            _currentIndex == 0 ? Icons.menu : Icons.arrow_back,
-            color: Colors.white, // White icon for dark theme
-          ),
-          onPressed: () {
-            if (_currentIndex == 0) {
-              // Open drawer or menu logic here
-            } else {
-              _resetToHomeScreen();
-            }
+        leading: Builder(
+          builder: (BuildContext context) {
+            return IconButton(
+              icon: const Icon(Icons.menu, color: Colors.white),
+              onPressed: () {
+                Scaffold.of(context).openDrawer(); // Open the drawer
+              },
+            );
           },
         ),
         actions: [
@@ -75,6 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+      drawer: _buildDrawer(), // Add the drawer
       body: _screens[_currentIndex],
       bottomNavigationBar: _showNavBar
           ? CurvedNavigationBar(
@@ -101,6 +128,64 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             )
           : null,
+    );
+  }
+
+  Widget _buildDrawer() {
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          DrawerHeader(
+            decoration: BoxDecoration(
+              color: Colors.black,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 30,
+                  backgroundImage:
+                      _userData != null && _userData!['profileImage'] != null
+                          ? NetworkImage(_userData!['profileImage'])
+                          : null,
+                  child: _userData == null || _userData!['profileImage'] == null
+                      ? Icon(Icons.person, size: 30, color: Colors.white)
+                      : null,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  _userData != null ? _userData!['name'] : 'Loading...',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  _userData != null ? _userData!['email'] : '',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.edit),
+            title: const Text('Edit Profile'),
+            onTap: () {
+              // Navigate to edit profile screen
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.logout),
+            title: const Text('Logout'),
+            onTap: _logout,
+          ),
+        ],
+      ),
     );
   }
 }

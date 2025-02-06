@@ -2,56 +2,51 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart'; // Import your ChatbotApiService
 
 class ChatbotScreen extends StatefulWidget {
+  final String userId;
   final VoidCallback onClose;
 
-  const ChatbotScreen({super.key, required this.onClose});
+  const ChatbotScreen({
+    super.key,
+    required this.userId,
+    required this.onClose,
+  });
 
   @override
   _ChatbotScreenState createState() => _ChatbotScreenState();
 }
 
 class _ChatbotScreenState extends State<ChatbotScreen> {
-  final TextEditingController _symptom1Controller = TextEditingController();
-  final TextEditingController _symptom2Controller = TextEditingController();
-  final TextEditingController _symptom3Controller = TextEditingController();
-
-  String _response = '';
+  final TextEditingController _messageController = TextEditingController();
+  final List<Map<String, String>> _chatHistory = [];
   bool _isLoading = false;
 
-  /// Validates user input and fetches diseases from the API.
-  Future<void> _fetchDiseases() async {
-    // Validate input
-    if (_symptom1Controller.text.trim().isEmpty ||
-        _symptom2Controller.text.trim().isEmpty ||
-        _symptom3Controller.text.trim().isEmpty) {
-      setState(() {
-        _response = 'Please fill in all the symptom fields.';
-      });
-      return;
-    }
+  /// Sends a message to the chatbot and updates the chat history.
+  Future<void> _sendMessage() async {
+    final String message = _messageController.text.trim();
+    if (message.isEmpty) return;
 
     setState(() {
       _isLoading = true;
-      _response = '';
+      _chatHistory.add({"user": message, "bot": ""});
     });
 
     try {
-      final String response = await ChatbotApiService.getDiseases(
-        symptom1: _symptom1Controller.text.trim(),
-        symptom2: _symptom2Controller.text.trim(),
-        symptom3: _symptom3Controller.text.trim(),
+      final String response = await ChatbotApiService.sendMessage(
+        userId: widget.userId,
+        message: message,
       );
 
       setState(() {
-        _response = response;
+        _chatHistory.last["bot"] = response;
       });
     } catch (e) {
       setState(() {
-        _response = 'Error: $e';
+        _chatHistory.last["bot"] = "Error: $e";
       });
     } finally {
       setState(() {
         _isLoading = false;
+        _messageController.clear();
       });
     }
   }
@@ -59,73 +54,90 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Enter Symptoms',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+      backgroundColor: Colors.grey[900],
+      appBar: AppBar(
+        title: Text('Medical Assistant Chatbot'),
+        backgroundColor: Colors.grey[850],
+        actions: [
+          IconButton(
+            icon: Icon(Icons.close),
+            onPressed: widget.onClose,
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              itemCount: _chatHistory.length,
+              itemBuilder: (context, index) {
+                final message = _chatHistory[index];
+                return Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: message.containsKey("user")
+                        ? CrossAxisAlignment.end
+                        : CrossAxisAlignment.start,
+                    children: [
+                      if (message.containsKey("user"))
+                        Container(
+                          padding: EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[800],
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            message["user"]!,
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      if (message.containsKey("bot"))
+                        Container(
+                          padding: EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[800],
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            message["bot"]!,
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
             ),
-            SizedBox(height: 10),
-            TextField(
-              controller: _symptom1Controller,
-              decoration: InputDecoration(
-                labelText: 'Symptom 1',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            SizedBox(height: 8),
-            TextField(
-              controller: _symptom2Controller,
-              decoration: InputDecoration(
-                labelText: 'Symptom 2',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            SizedBox(height: 8),
-            TextField(
-              controller: _symptom3Controller,
-              decoration: InputDecoration(
-                labelText: 'Symptom 3',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _isLoading ? null : _fetchDiseases,
-              child: _isLoading
-                  ? SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        strokeWidth: 2,
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _messageController,
+                    decoration: InputDecoration(
+                      hintText: 'Type your message...',
+                      hintStyle: TextStyle(color: Colors.grey),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                    )
-                  : Text('Get Diseases'),
-            ),
-            SizedBox(height: 16),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Text(
-                  _response.isEmpty ? 'Response will appear here.' : _response,
-                  style: TextStyle(fontSize: 16, color: Colors.black),
+                      filled: true,
+                      fillColor: Colors.grey[800],
+                    ),
+                    style: TextStyle(color: Colors.white),
+                  ),
                 ),
-              ),
+                SizedBox(width: 8),
+                IconButton(
+                  icon: Icon(Icons.send, color: Colors.blue),
+                  onPressed: _isLoading ? null : _sendMessage,
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _symptom1Controller.dispose();
-    _symptom2Controller.dispose();
-    _symptom3Controller.dispose();
-    super.dispose();
   }
 }
