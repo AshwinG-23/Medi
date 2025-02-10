@@ -4,23 +4,40 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart';
+import 'package:photo_view/photo_view.dart';
 
 class MedicalManagementScreen extends StatefulWidget {
   const MedicalManagementScreen({super.key});
 
   @override
-  _MedicalManagementScreenState createState() => _MedicalManagementScreenState();
+  _MedicalManagementScreenState createState() =>
+      _MedicalManagementScreenState();
 }
 
-class _MedicalManagementScreenState extends State<MedicalManagementScreen> {
+class _MedicalManagementScreenState extends State<MedicalManagementScreen>
+    with SingleTickerProviderStateMixin {
   final _imagePicker = ImagePicker();
   Box? _prescriptionBox;
   final TextEditingController _searchController = TextEditingController();
+  late AnimationController _animationController;
+  bool _isExpanded = false;
 
   @override
   void initState() {
     super.initState();
     _initializeHive();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 
   Future<void> _initializeHive() async {
@@ -28,82 +45,243 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen> {
     setState(() {});
   }
 
-  Future<void> _addPrescription() async {
-    var status = await Permission.camera.request();
+  Future<void> _handleStorageSelection() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx'],
+      );
+
+      if (result != null && result.files.single.path != null && mounted) {
+        _showTagsDialog(result.files.single.path!);
+      }
+    } on PlatformException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.message}')),
+        );
+      }
+    }
+  }
+
+  void _viewCompleteDocument(String imagePath) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+          body: PhotoView(
+            imageProvider: FileImage(File(imagePath)),
+            minScale: PhotoViewComputedScale.contained,
+            maxScale: PhotoViewComputedScale.covered * 2,
+            backgroundDecoration: const BoxDecoration(color: Colors.black),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleImageSelection(ImageSource source) async {
+    var status = source == ImageSource.camera
+        ? await Permission.camera.request()
+        : await Permission.photos.request();
+
     if (status.isDenied) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Camera permission is required')),
+          const SnackBar(content: Text('Permission is required')),
         );
       }
       return;
     }
 
-    final pickedFile = await _imagePicker.pickImage(source: ImageSource.camera);
+    final pickedFile = await _imagePicker.pickImage(source: source);
     if (pickedFile != null && mounted) {
-      final tagsController = TextEditingController();
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: Colors.grey[900],
-          title: const Text(
-            'Add Tags',
-            style: TextStyle(color: Colors.white),
-          ),
-          content: TextField(
-            controller: tagsController,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              hintText: 'Enter tags separated by commas',
-              hintStyle: TextStyle(color: Colors.grey[400]),
-              enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.grey[700]!),
-              ),
+      _showTagsDialog(pickedFile.path);
+    }
+  }
+
+  void _showTagsDialog(String imagePath) {
+    final tagsController = TextEditingController();
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Prevent closing by tapping outside
+      builder: (BuildContext dialogContext) => AlertDialog(
+        // Use dialogContext instead of context
+        backgroundColor: Colors.grey[900],
+        title: const Text(
+          'Add Tags',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: TextField(
+          controller: tagsController,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: 'Enter tags separated by commas',
+            hintStyle: TextStyle(color: Colors.grey[400]),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.grey[700]!),
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (tagsController.text.trim().isNotEmpty) {
                 final tags = tagsController.text
                     .split(',')
                     .map((e) => e.trim().toLowerCase())
                     .where((e) => e.isNotEmpty)
                     .toList();
                 final id = DateTime.now().toIso8601String();
-                _prescriptionBox!.put(id, {
+
+                final prescription = {
                   'id': id,
-                  'imagePath': pickedFile.path,
+                  'imagePath': imagePath,
                   'tags': tags,
                   'timestamp': DateTime.now().toIso8601String(),
-                });
-                Navigator.of(context).pop();
-                setState(() {});
-              },
-              child: const Text('Save', style: TextStyle(color: Colors.deepOrange)),
-            ),
-          ],
-        ),
-      );
-    }
+                };
+
+                await _prescriptionBox?.put(id, prescription);
+
+                // Close dialog using dialogContext
+                if (mounted) {
+                  Navigator.of(dialogContext).pop();
+
+                  // Show success message
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Prescription saved successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+
+                  // Force refresh
+                  setState(() {});
+                }
+              } else {
+                // Show error for empty tags
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please enter at least one tag'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child:
+                const Text('Save', style: TextStyle(color: Colors.deepOrange)),
+          ),
+        ],
+      ),
+    );
   }
 
-  List<Map<String, dynamic>> _getPrescriptions(String query) {
-    if (_prescriptionBox == null) return [];
+  Widget _buildPrescriptionCard(Map<String, dynamic> prescription) {
+    final date = DateFormat('dd/MM/yyyy')
+        .format(DateTime.parse(prescription['timestamp']));
+    final tags = prescription['tags'] as List;
+    final title = '${tags.first} Prescription';
 
-    final prescriptions = _prescriptionBox!.values
-        .cast<Map<String, dynamic>>()
-        .toList()
-        .where((item) => File(item['imagePath']).existsSync())
-        .toList();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.grey[900],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(Icons.description_outlined,
+                    color: Colors.deepOrange, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Text(date, style: TextStyle(color: Colors.grey[500])),
+              ],
+            ),
+          ),
 
-    prescriptions.sort((a, b) => b['timestamp'].compareTo(a['timestamp']));
+          /// Image Preview with Button Overlaid
+          Stack(
+            alignment: Alignment.center, // Center button over image
+            children: [
+              /// Image Preview
+              Container(
+                height: 150,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  border: Border.symmetric(
+                    horizontal: BorderSide(color: Colors.grey[800]!, width: 1),
+                  ),
+                ),
+                child: Image.file(
+                  File(prescription['imagePath']),
+                  fit: BoxFit.cover,
+                ),
+              ),
 
-    if (query.trim().isEmpty) return prescriptions;
-
-    return prescriptions.where((item) {
-      return (item['tags'] as List)
-          .any((tag) => tag.toLowerCase().contains(query.toLowerCase()));
-    }).toList();
+              /// Positioned Button (Overlay)
+              Positioned(
+                bottom: 10, // Adjust position over image
+                left: 20,
+                right: 20,
+                child: ElevatedButton(
+                  onPressed: () =>
+                      _viewCompleteDocument(prescription['imagePath']),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        Colors.black.withOpacity(0.7), // Transparent black
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 4,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.list_alt, color: Colors.orange),
+                      const SizedBox(width: 8),
+                      Text(
+                        "View Document",
+                        style: TextStyle(
+                          color: Colors.orange,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -114,52 +292,49 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                'My Prescriptions',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  const Text(
+                    'Medical Prescriptions',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
               ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.grey[900],
+                  color: Colors.grey,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Row(
-                  children: [
-                    const SizedBox(width: 12),
-                    Icon(Icons.search, color: Colors.grey[600]),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _searchController,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          hintText: 'Example "heart"',
-                          hintStyle: TextStyle(color: Colors.grey[600]),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 15),
-                        ),
-                        onChanged: (value) => setState(() {}),
-                      ),
-                    ),
-                    Container(
+                child: TextField(
+                  controller: _searchController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Example "heart"',
+                    hintStyle: TextStyle(color: Colors.black),
+                    prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+                    suffixIcon: Container(
                       margin: const EdgeInsets.all(8),
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: Colors.deepOrange,
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Icon(Icons.tune, color: Colors.white, size: 20),
+                      child:
+                          const Icon(Icons.tune, color: Colors.white, size: 20),
                     ),
-                  ],
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                  ),
+                  onChanged: (value) => setState(() {}),
                 ),
               ),
             ),
@@ -167,11 +342,13 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen> {
             Expanded(
               child: _prescriptionBox == null
                   ? const Center(
-                      child: CircularProgressIndicator(color: Colors.deepOrange))
+                      child:
+                          CircularProgressIndicator(color: Colors.deepOrange))
                   : ValueListenableBuilder(
                       valueListenable: _prescriptionBox!.listenable(),
                       builder: (context, box, _) {
-                        final prescriptions = _getPrescriptions(_searchController.text);
+                        final prescriptions =
+                            _getPrescriptions(_searchController.text);
 
                         if (prescriptions.isEmpty) {
                           return Center(
@@ -197,54 +374,7 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           itemCount: prescriptions.length,
                           itemBuilder: (context, index) {
-                            final prescription = prescriptions[index];
-                            final date = DateFormat('dd/MM/yyyy').format(
-                                DateTime.parse(prescription['timestamp']));
-                            
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[900],
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: ListTile(
-                                leading: Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[800],
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.file(
-                                      File(prescription['imagePath']),
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                ),
-                                title: Text(
-                                  prescription['tags'].join(', '),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  date,
-                                  style: TextStyle(color: Colors.grey[500]),
-                                ),
-                                trailing: IconButton(
-                                  icon: const Icon(
-                                    Icons.edit_outlined,
-                                    color: Colors.deepOrange,
-                                  ),
-                                  onPressed: () {
-                                    // Handle edit functionality
-                                  },
-                                ),
-                              ),
-                            );
+                            return _buildPrescriptionCard(prescriptions[index]);
                           },
                         );
                       },
@@ -253,11 +383,108 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.deepOrange,
-        onPressed: _addPrescription,
-        child: const Icon(Icons.add),
+      floatingActionButton: Flow(
+        delegate: FlowMenuDelegate(animation: _animationController),
+        children: [
+          FloatingActionButton(
+            heroTag: 'storage',
+            backgroundColor: Colors.grey,
+            onPressed: _handleStorageSelection,
+            child: const Icon(Icons.folder),
+          ),
+          FloatingActionButton(
+            heroTag: 'gallery',
+            backgroundColor: Colors.grey,
+            child: const Icon(Icons.photo_library),
+            onPressed: () => _handleImageSelection(ImageSource.gallery),
+          ),
+          FloatingActionButton(
+            heroTag: 'camera',
+            backgroundColor: Colors.grey,
+            child: const Icon(Icons.camera_alt),
+            onPressed: () => _handleImageSelection(ImageSource.camera),
+          ),
+          FloatingActionButton(
+            heroTag: 'main',
+            backgroundColor: Colors.deepOrange,
+            child: AnimatedIcon(
+              icon: AnimatedIcons.menu_close,
+              progress: _animationController,
+            ),
+            onPressed: () {
+              setState(() {
+                _isExpanded = !_isExpanded;
+                if (_isExpanded) {
+                  _animationController.forward();
+                } else {
+                  _animationController.reverse();
+                }
+              });
+            },
+          ),
+        ],
       ),
     );
+  }
+
+  List<Map<String, dynamic>> _getPrescriptions(String query) {
+    if (_prescriptionBox == null) return [];
+
+    final prescriptions = _prescriptionBox!.values
+        .map((item) {
+          // Convert Map<dynamic, dynamic> to Map<String, dynamic>
+          final map = item as Map<dynamic, dynamic>;
+          return map.map<String, dynamic>(
+            (key, value) => MapEntry(key.toString(), value),
+          );
+        })
+        .toList()
+        .where((item) => File(item['imagePath']).existsSync())
+        .toList();
+
+    prescriptions.sort((a, b) => b['timestamp'].compareTo(a['timestamp']));
+
+    if (query.trim().isEmpty) return prescriptions;
+
+    return prescriptions.where((item) {
+      return (item['tags'] as List)
+          .any((tag) => tag.toLowerCase().contains(query.toLowerCase()));
+    }).toList();
+  }
+}
+
+class FlowMenuDelegate extends FlowDelegate {
+  final Animation<double> animation;
+
+  FlowMenuDelegate({required this.animation}) : super(repaint: animation);
+
+  @override
+  void paintChildren(FlowPaintingContext context) {
+    final size = context.size;
+    final xStart = size.width - 56;
+    final yStart = size.height - 56;
+
+    for (int i = 0; i < context.childCount; i++) {
+      final childSize = context.getChildSize(i)?.width ?? 56;
+      final isLastItem = i == context.childCount - 1;
+
+      if (isLastItem) {
+        context.paintChild(
+          i,
+          transform: Matrix4.translationValues(xStart, yStart, 0),
+        );
+      } else {
+        final offset = 70.0 * (i + 1) * animation.value;
+        context.paintChild(
+          i,
+          transform: Matrix4.translationValues(xStart, yStart - offset, 0),
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(FlowMenuDelegate oldDelegate) {
+    return animation != oldDelegate.animation;
   }
 }

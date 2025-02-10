@@ -1,27 +1,20 @@
-import '../services/location_service.dart';
 import 'package:latlong2/latlong.dart';
 
 class AppData {
   static final AppData _instance = AppData._internal();
   factory AppData() => _instance;
   AppData._internal();
+  bool isDataFetched = false;
 
   LatLng? userLocation;
-  List<dynamic> nearbyHospitals = [];
-  bool isDataFetched = false;
-  double searchRadius = 5000; // Default search radius
+  Map<double, List<dynamic>> hospitalsMap = {}; // Stores hospitals for all radii
+  double searchRadius = 5000; // Default search radius (5 km)
 
-  Future<void> fetchData({double? radius}) async {
-    final locationService = LocationService();
-    var position = await locationService.getCurrentLocation();
-    if (position != null) {
-      userLocation = LatLng(position.latitude, position.longitude);
-      nearbyHospitals = await locationService.getNearbyHospitals(
-        userLocation!.latitude,
-        userLocation!.longitude,
-        radius ?? searchRadius, // Use provided radius or default
-      );
-      isDataFetched = true;
-    }
+  List<dynamic> get nearbyHospitals => hospitalsMap[searchRadius] ?? [];
+
+  void updateData(LatLng location, Map<double, List<dynamic>> hospitals) {
+    userLocation = location;
+    hospitalsMap = hospitals;
+    isDataFetched = true;
   }
 }

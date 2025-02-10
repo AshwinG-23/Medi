@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import '../services/location_service.dart';
 import '../utils/location_data.dart';
+import '../services/background_fetch_service.dart';
 import 'dart:async';
+import 'package:url_launcher/url_launcher.dart';
 
 class NearbyAssistanceScreen extends StatefulWidget {
   const NearbyAssistanceScreen({super.key});
@@ -13,14 +14,13 @@ class NearbyAssistanceScreen extends StatefulWidget {
 }
 
 class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
-  final AppData _appData = AppData();
-  final LocationService _locationService = LocationService();
+  final AppData _appData = AppData(); // Use the singleton instance
   bool _isLoading = false;
   int _selectedHospitalIndex = -1;
   bool _showHospitalInfo = false;
   bool _showHospitalsList = false;
+  final MapController _mapController = MapController();
 
-  // Move colors to a separate class for better organization
   static const _colors = _NearbyAssistanceColors();
 
   @override
@@ -31,35 +31,42 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
 
   Future<void> _initializeData() async {
     if (!_appData.isDataFetched) {
-      await _fetchData();
-    }
-  }
-
-  Future<void> _fetchData() async {
-    if (mounted) {
       setState(() => _isLoading = true);
-    }
-
-    try {
-      await _appData.fetchData();
-    } catch (e) {
-      if (mounted) {
+      try {
+        _adjustMapZoom();
+      } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error fetching data: ${e.toString()}')),
+          SnackBar(content: Text('Error initializing data: ${e.toString()}')),
         );
-      }
-    } finally {
-      if (mounted) {
+      } finally {
         setState(() => _isLoading = false);
       }
     }
   }
 
-  Future<void> _onSearchRadiusChanged(double value) async {
-    if (mounted) {
-      setState(() => _appData.searchRadius = value * 1000);
+  void _adjustMapZoom() {
+    if (_appData.userLocation != null && _appData.nearbyHospitals.isNotEmpty) {
+      final farthestHospital = _appData.nearbyHospitals.last;
+      final coordinates = farthestHospital["geometry"]["coordinates"] as List;
+      final hospitalLocation = LatLng(coordinates[1], coordinates[0]);
+      final bounds =
+          LatLngBounds.fromPoints([_appData.userLocation!, hospitalLocation]);
+      _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: bounds,
+          padding: EdgeInsets.all(50), // Optional padding
+        ),
+      );
     }
-    await _fetchData();
+  }
+
+  void _onSearchRadiusChanged(double value) {
+    if (mounted) {
+      setState(() {
+        _appData.searchRadius = value * 1000; // Update search radius in AppData
+        _adjustMapZoom(); // Adjust map zoom for the new radius
+      });
+    }
   }
 
   void _onHospitalPinTap(int index) {
@@ -94,13 +101,15 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
   }
 
   Future<void> _navigateToHospital(double lat, double lng) async {
-    try {
-      await _locationService.launchGoogleMapsNavigation(lat, lng);
-    } catch (e) {
+    final Uri googleMapsUrl = Uri.parse(
+        "https://www.google.com/maps/dir/?api=1&destination=$lat,$lng");
+
+    if (await canLaunchUrl(googleMapsUrl)) {
+      await launchUrl(googleMapsUrl, mode: LaunchMode.externalApplication);
+    } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('Error launching navigation: ${e.toString()}')),
+          SnackBar(content: Text('Could not launch Google Maps')),
         );
       }
     }
@@ -137,56 +146,28 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
       return Center(child: CircularProgressIndicator(color: _colors.primary));
     }
 
-    return Stack(
+    return FlutterMap(
+      mapController: _mapController,
+      options: MapOptions(
+        initialCenter: _appData.userLocation!,
+        initialZoom: 14,
+        onTap: (_, __) => _closeModals(),
+        keepAlive: true,
+        interactionOptions: InteractionOptions(
+          flags: InteractiveFlag.all,
+        ),
+      ),
       children: [
-        // The map with grayscale effect
-        FlutterMap(
-          options: MapOptions(
-            initialCenter: _appData.userLocation!,
-            initialZoom: 16,
-            onTap: (_, __) => _closeModals(),
-            keepAlive: true,
-          ),
-          children: [
-            _buildTileLayer(),
-            _buildMarkerLayer(),
+        TileLayer(
+          urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+          subdomains: ['a', 'b', 'c'],
+        ),
+        MarkerLayer(
+          markers: [
+            _buildUserLocationMarker(),
+            ..._buildHospitalMarkers(),
           ],
         ),
-        // The gradient overlay at the bottom
-        Positioned.fill(
-          child: Align(
-            alignment: Alignment.bottomCenter,
-            child: Container(
-              height: MediaQuery.of(context).size.height *
-                  0.4, // Adjust this to control the fade area height
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent, // Top part: transparent
-                    Colors.black.withOpacity(0.9), // Fading into black
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  TileLayer _buildTileLayer() {
-    return TileLayer(
-      urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    );
-  }
-
-  MarkerLayer _buildMarkerLayer() {
-    return MarkerLayer(
-      markers: [
-        _buildUserLocationMarker(),
-        ..._buildHospitalMarkers(),
       ],
     );
   }
@@ -270,11 +251,12 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
             Slider(
               value: _appData.searchRadius / 1000,
               min: 5,
-              max: 50,
-              divisions: 9,
+              max: 55,
+              divisions: 5,
               activeColor: _colors.primary,
               label: "${(_appData.searchRadius / 1000).toStringAsFixed(1)} km",
-              onChanged: _onSearchRadiusChanged,
+              onChanged:
+                  _onSearchRadiusChanged, // Triggered when slider value changes
             ),
           ],
         ),
@@ -289,12 +271,16 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
         hospital["properties"]["address_line1"] ?? "No address available";
     final distance = hospital["properties"]["distance"];
 
-    return Positioned(
-      bottom: 20,
+    return AnimatedPositioned(
+      duration: Duration(milliseconds: 900),
+      curve: Curves.easeInOut,
+      bottom: _showHospitalInfo ? 20 : -300,
       left: 20,
       right: 20,
-      child: GestureDetector(
-        onTap: () {},
+      child: FadeTransition(
+        opacity: _showHospitalInfo
+            ? AlwaysStoppedAnimation(1.0)
+            : AlwaysStoppedAnimation(0.0),
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -370,12 +356,16 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
   }
 
   Widget _buildHospitalsList() {
-    return Positioned(
-      bottom: 20,
+    return AnimatedPositioned(
+      duration: Duration(milliseconds: 900),
+      curve: Curves.easeInOut,
+      bottom: _showHospitalsList ? 20 : -300,
       left: 20,
       right: 20,
-      child: GestureDetector(
-        onTap: () {},
+      child: FadeTransition(
+        opacity: _showHospitalsList
+            ? AlwaysStoppedAnimation(1.0)
+            : AlwaysStoppedAnimation(0.0),
         child: Container(
           height: MediaQuery.of(context).size.height * 0.6,
           decoration: BoxDecoration(

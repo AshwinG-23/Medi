@@ -1,142 +1,256 @@
 import 'package:flutter/material.dart';
-import '../services/api_service.dart'; // Import your ChatbotApiService
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import '../services/api_service.dart';
+import 'symtom_predictor_screen.dart';
 
-class ChatbotScreen extends StatefulWidget {
-  final String userId;
-  final VoidCallback onClose;
-
-  const ChatbotScreen({
-    super.key,
-    required this.userId,
-    required this.onClose,
-  });
-
+class ChatScreen extends StatefulWidget {
+  const ChatScreen({super.key});
   @override
-  _ChatbotScreenState createState() => _ChatbotScreenState();
+  ChatScreenState createState() => ChatScreenState();
 }
 
-class _ChatbotScreenState extends State<ChatbotScreen> {
-  final TextEditingController _messageController = TextEditingController();
-  final List<Map<String, String>> _chatHistory = [];
-  bool _isLoading = false;
+class ChatScreenState extends State<ChatScreen> {
+  final ApiService _apiService = ApiService();
+  final TextEditingController _controller = TextEditingController();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  List<Map<String, dynamic>> _messages = [];
+  bool _isLoading = true;
+  final ScrollController _scrollController = ScrollController();
 
-  /// Sends a message to the chatbot and updates the chat history.
-  Future<void> _sendMessage() async {
-    final String message = _messageController.text.trim();
-    if (message.isEmpty) return;
+  @override
+  void initState() {
+    super.initState();
+    _loadPreviousChats();
+  }
 
-    setState(() {
-      _isLoading = true;
-      _chatHistory.add({"user": message, "bot": ""});
-    });
-
-    try {
-      final String response = await ChatbotApiService.sendMessage(
-        userId: widget.userId,
-        message: message,
-      );
-
-      setState(() {
-        _chatHistory.last["bot"] = response;
-      });
-    } catch (e) {
-      setState(() {
-        _chatHistory.last["bot"] = "Error: $e";
-      });
-    } finally {
+  void _loadPreviousChats() async {
+    User? currentUser = _auth.currentUser;
+    if (currentUser == null) {
       setState(() {
         _isLoading = false;
-        _messageController.clear();
       });
+      return;
+    }
+
+    try {
+      var chatQuery = await _firestore
+          .collection('users')
+          .doc(currentUser.uid)
+          .collection('chats')
+          .orderBy('timestamp', descending: false)
+          .limitToLast(15)
+          .get();
+
+      List<Map<String, dynamic>> loadedMessages = chatQuery.docs
+          .map((doc) => {
+                'sender': doc['sender'],
+                'message': doc['message'],
+                'timestamp': doc['timestamp']
+              })
+          .toList();
+
+      setState(() {
+        _messages = loadedMessages;
+        _isLoading = false;
+      });
+
+      _scrollToBottom();
+    } catch (e) {
+      print('Error loading previous chats: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _sendMessage() async {
+    String symptom = _controller.text;
+    if (symptom.isEmpty) return;
+
+    User? currentUser = _auth.currentUser;
+    if (currentUser == null) return;
+
+    String context = _messages
+        .map((msg) => "${msg['sender']}: ${msg['message']}")
+        .join('\n');
+
+    setState(() {
+      _messages.add(
+          {'sender': 'user', 'message': symptom, 'timestamp': DateTime.now()});
+    });
+    _controller.clear();
+
+    _scrollToBottom();
+
+    try {
+      String response = await _apiService.getDiseases(context, symptom);
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+
+      await _firestore
+          .collection('users')
+          .doc(currentUser.uid)
+          .collection('chats')
+          .doc(timestamp.toString())
+          .set({
+        'sender': 'user',
+        'message': symptom,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      await _firestore
+          .collection('users')
+          .doc(currentUser.uid)
+          .collection('chats')
+          .doc((timestamp + 1).toString())
+          .set({
+        'sender': 'bot',
+        'message': response,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      setState(() {
+        _messages.add({
+          'sender': 'bot',
+          'message': response,
+          'timestamp': DateTime.now()
+        });
+      });
+
+      _scrollToBottom();
+    } catch (e) {
+      setState(() {
+        _messages.add({
+          'sender': 'bot',
+          'message':
+              'Sorry, I encountered an error while analyzing your symptoms. Please try again.',
+          'timestamp': DateTime.now()
+        });
+      });
+      print('Error getting disease prediction: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[900],
-      appBar: AppBar(
-        title: Text('Medical Assistant Chatbot'),
-        backgroundColor: Colors.grey[850],
-        actions: [
-          IconButton(
-            icon: Icon(Icons.close),
-            onPressed: widget.onClose,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              itemCount: _chatHistory.length,
-              itemBuilder: (context, index) {
-                final message = _chatHistory[index];
-                return Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Column(
-                    crossAxisAlignment: message.containsKey("user")
-                        ? CrossAxisAlignment.end
-                        : CrossAxisAlignment.start,
-                    children: [
-                      if (message.containsKey("user"))
-                        Container(
-                          padding: EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.blue[800],
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            message["user"]!,
-                            style: TextStyle(color: Colors.white),
-                          ),
-                        ),
-                      if (message.containsKey("bot"))
-                        Container(
-                          padding: EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[800],
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            message["bot"]!,
-                            style: TextStyle(color: Colors.white),
-                          ),
-                        ),
-                    ],
-                  ),
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Column(
+          children: [
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => SymptomPredictorScreen()),
                 );
               },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: InputDecoration(
-                      hintText: 'Type your message...',
-                      hintStyle: TextStyle(color: Colors.grey),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+              child: Column(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    height: 140,
+                    color: Colors.black,
+                    child: Center(
+                      child: Image.asset(
+                        'lib/assets/chatbot_logo.png',
+                        height: 100,
+                        width: 200,
+                        fit: BoxFit.contain,
                       ),
-                      filled: true,
-                      fillColor: Colors.grey[800],
                     ),
-                    style: TextStyle(color: Colors.white),
                   ),
-                ),
-                SizedBox(width: 8),
-                IconButton(
-                  icon: Icon(Icons.send, color: Colors.blue),
-                  onPressed: _isLoading ? null : _sendMessage,
-                ),
-              ],
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(
+                      'Click above to use Symtom Predictor',
+                      style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w400),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            Expanded(
+              child: _isLoading
+                  ? Center(child: CircularProgressIndicator())
+                  : ListView.builder(
+                      controller: _scrollController,
+                      itemCount: _messages.length,
+                      itemBuilder: (context, index) {
+                        final message = _messages[index];
+                        return Align(
+                          alignment: message['sender'] == 'user'
+                              ? Alignment.centerRight
+                              : Alignment.centerLeft,
+                          child: Container(
+                            margin: EdgeInsets.symmetric(
+                                vertical: 4, horizontal: 8),
+                            padding: EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.black,
+                              border:
+                                  Border.all(color: Colors.grey, width: 0.5),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: MarkdownBody(
+                              data: message['message']!,
+                              styleSheet: MarkdownStyleSheet(
+                                p: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      style: TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Describe your symptoms...',
+                        hintStyle: TextStyle(color: Colors.grey),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          borderSide: BorderSide(color: Colors.orange),
+                        ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.send,
+                      color: Colors.orange,
+                    ),
+                    onPressed: _sendMessage,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
