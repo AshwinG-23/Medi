@@ -7,7 +7,6 @@ final ThemeData lightTheme = ThemeData(
     primary: Colors.green,
     secondary: Colors.lightGreen,
     surface: Colors.white,
-    background: Colors.white,
   ),
   scaffoldBackgroundColor: Colors.white,
   appBarTheme: const AppBarTheme(
@@ -30,8 +29,7 @@ final ThemeData darkTheme = ThemeData(
   colorScheme: const ColorScheme.dark(
     primary: Colors.orange,
     secondary: Colors.deepOrange,
-    surface: Color(0xFF212121), // Equivalent to Colors.grey[900]
-    background: Color(0xFF212121),
+    surface: Color(0xFF212121),
   ),
   scaffoldBackgroundColor: const Color(0xFF212121),
   appBarTheme: const AppBarTheme(

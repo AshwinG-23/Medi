@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'questionnaire_screen.dart';
+import 'login_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -79,11 +80,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
     }
   }
-
+  void _navigateToLogin() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color(0xFF222121), //backgroundColor: const Color(0xFF222121),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -110,20 +116,34 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   style: TextStyle(fontSize: 20, color: Colors.grey),
                 ),
                 const SizedBox(height: 5),
-                TextField(
-                  controller: _emailController,
-                  decoration: InputDecoration(
-                    hintText: "Enter your email",
-                    hintStyle: const TextStyle(color: Colors.grey),
-                    fillColor: Colors.grey[900],
-                    filled: true,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(18.0),
-                      borderSide: BorderSide.none,
-                    ),
+
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18.0),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black,
+                        spreadRadius: 0.1,
+                        blurRadius: 5,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
                   ),
-                  style: const TextStyle(color: Colors.white),
-                  keyboardType: TextInputType.emailAddress,
+                  child: TextField(
+                    controller: _emailController,
+                    decoration: InputDecoration(
+                      hintText: "Enter your email",
+                      hintStyle: const TextStyle(color: Colors.grey),
+                      fillColor: const Color(0xFF302D2D),
+                      filled: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18.0),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    style: const TextStyle(color: Colors.white),
+                    keyboardType: TextInputType.emailAddress,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 const Text(
@@ -131,42 +151,70 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   style: TextStyle(fontSize: 20, color: Colors.grey),
                 ),
                 const SizedBox(height: 5),
-                TextField(
-                  controller: _passwordController,
-                  decoration: InputDecoration(
-                    hintText: "Enter your password",
-                    hintStyle: const TextStyle(color: Colors.grey),
-                    fillColor: Colors.grey[900],
-                    filled: true,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(18.0),
-                      borderSide: BorderSide.none,
-                    ),
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18.0),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black,
+                        spreadRadius: 0.1,
+                        blurRadius: 5,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
                   ),
-                  style: const TextStyle(color: Colors.white),
-                  obscureText: true,
+                  child: TextField(
+                    controller: _passwordController,
+                    decoration: InputDecoration(
+                      hintText: "Enter your password",
+                      hintStyle: const TextStyle(color: Colors.grey),
+                      fillColor: const Color(0xFF302D2D),
+                      filled: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18.0),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    style: const TextStyle(color: Colors.white),
+                    obscureText: true,
+                  ),
                 ),
+
                 const SizedBox(height: 20),
                 const Text(
                   'Confirm Password',
                   style: TextStyle(fontSize: 20, color: Colors.grey),
                 ),
                 const SizedBox(height: 5),
-                TextField(
-                  controller: _confirmPasswordController,
-                  decoration: InputDecoration(
-                    hintText: "Confirm your password",
-                    hintStyle: const TextStyle(color: Colors.grey),
-                    fillColor: Colors.grey[900],
-                    filled: true,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(18.0),
-                      borderSide: BorderSide.none,
-                    ),
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18.0),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black,
+                        spreadRadius: 0.1,
+                        blurRadius: 5,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
                   ),
-                  style: const TextStyle(color: Colors.white),
-                  obscureText: true,
+                  child: TextField(
+                    controller: _confirmPasswordController,
+                    decoration: InputDecoration(
+                      hintText: "Confirm your password",
+                      hintStyle: const TextStyle(color: Colors.grey),
+                      fillColor: const Color(0xFF302D2D),
+                      filled: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18.0),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    style: const TextStyle(color: Colors.white),
+                    obscureText: true,
+                  ),
                 ),
+
                 const SizedBox(height: 20),
                 Row(
                   children: [
@@ -195,24 +243,59 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _signUp,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.0),
+                Align(
+                      alignment: Alignment.center,
+                      child: FractionallySizedBox(
+                      widthFactor: 0.6, // 70% of the parent's width
+                      child: ElevatedButton(
+                        onPressed: _signUp,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF6295E2),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(19.0),
+                          ),
+                          minimumSize: const Size.fromHeight(50),
+                        ),
+                        child: const Text("Sign Up"),
+                      ),
                     ),
-                    minimumSize: const Size.fromHeight(50),
-                  ),
-                  child: const Text("Sign Up"),
                 ),
+                const SizedBox(height: 1),
+                Center(
+                  child: TextButton(
+                    onPressed: _navigateToLogin,
+                    child: RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: "Already have an account? ",
+                            style: TextStyle(
+                              color: Colors.grey, // Grey color for the first part
+                              fontSize: 16, // Adjust font size as needed
+                            ),
+                          ),
+                          TextSpan(
+                            text: "Sign In",
+                            style: TextStyle(
+                              color: Colors.blue, // Blue color for "Sign In"
+                              fontSize: 16, // Adjust font size as needed
+                              decoration: TextDecoration.underline, // Underline for "Sign In"
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
               ],
             ),
           ),
         ),
       ),
+
     );
   }
 }

@@ -40,6 +40,7 @@ dependencies:
   decorated_icon: ^1.2.1
   provider: ^6.1.2
   flutter_svg: ^2.0.17
+  flutter_pdfview: ^1.4.0
 
 dev_dependencies:
   flutter_test:

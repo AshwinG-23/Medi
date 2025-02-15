@@ -3,7 +3,6 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../utils/location_data.dart';
 import 'dart:async';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:decorated_icon/decorated_icon.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -299,9 +298,10 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.black.withOpacity(0.1),
-                Colors.black.withOpacity(0.5),
-                Colors.black.withOpacity(0.7),
+                const Color.fromARGB(150, 30, 30, 30),
+                const Color.fromARGB(150, 30, 30, 30),
+                const Color.fromARGB(150, 30, 30, 30),
+                const Color.fromARGB(255, 30, 30, 30),
               ],
             ),
           ),

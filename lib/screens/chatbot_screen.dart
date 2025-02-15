@@ -19,11 +19,40 @@ class ChatScreenState extends State<ChatScreen> {
   List<Map<String, dynamic>> _messages = [];
   bool _isLoading = true;
   final ScrollController _scrollController = ScrollController();
+  bool _showFloatingButton = false;
 
   @override
   void initState() {
     super.initState();
     _loadPreviousChats();
+    _scrollController.addListener(_scrollListener);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_scrollListener);
+    super.dispose();
+  }
+
+  void _scrollListener() {
+    if (_scrollController.offset > 140 && !_showFloatingButton) {
+      setState(() {
+        _showFloatingButton = true;
+      });
+    } else if (_scrollController.offset <= 140 && _showFloatingButton) {
+      setState(() {
+        _showFloatingButton = false;
+      });
+    }
+  }
+
+  void _navigateToSymptomPredictor() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SymptomPredictorScreen(),
+      ),
+    );
   }
 
   void _loadPreviousChats() async {
@@ -152,127 +181,139 @@ class ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Column(
-          children: [
-            GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => SymptomPredictorScreen()),
-                );
-              },
-              child: Column(
-                children: [
-                  Container(
-                    width: double.infinity,
-                    height: 140,
-                    color: Colors.black,
-                    child: Center(
-                      child: Image.asset(
-                        'lib/assets/chatbot_logo.png',
-                        height: 100,
-                        width: 200,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(
-                      'Click above to use Symptom Predictor',
-                      style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w400),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: _isLoading
-                  ? Center(child: CircularProgressIndicator())
-                  : ListView.builder(
-                      controller: _scrollController,
-                      itemCount: _messages.length,
-                      itemBuilder: (context, index) {
-                        final message = _messages[index];
-                        return Align(
-                          alignment: message['sender'] == 'user'
-                              ? Alignment.centerRight
-                              : Alignment.centerLeft,
-                          child: Container(
-                            margin: EdgeInsets.symmetric(
-                                vertical: 4, horizontal: 8),
-                            padding: EdgeInsets.all(12),
-                            constraints: BoxConstraints(
-                              maxWidth: MediaQuery.of(context).size.width * 0.8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: message['sender'] == 'user'
-                                  ? Colors.blue
-                                  : const Color.fromARGB(255, 22, 22, 22),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: MarkdownBody(
-                              data: message['message'],
-                              styleSheet: MarkdownStyleSheet(
-                                p: const TextStyle(color: Colors.white),
-                                h1: const TextStyle(
-                                    color: Colors.white, fontSize: 24),
-                                h2: const TextStyle(
-                                    color: Colors.white, fontSize: 20),
-                                strong: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold),
-                                listBullet:
-                                    const TextStyle(color: Colors.white),
-                                em: const TextStyle(color: Colors.white),
-                                blockquote:
-                                    const TextStyle(color: Colors.white),
-                                code: const TextStyle(color: Colors.white),
-                                listIndent: 20.0,
+      backgroundColor: const Color.fromARGB(255, 30, 30, 30),
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: _isLoading
+                      ? Center(child: CircularProgressIndicator())
+                      : ListView.builder(
+                          controller: _scrollController,
+                          itemCount: _messages.length + 1,
+                          itemBuilder: (context, index) {
+                            if (index == 0) {
+                              return Column(
+                                children: [
+                                  Container(
+                                    width: double.infinity,
+                                    height: 140,
+                                    color:
+                                        const Color.fromARGB(255, 30, 30, 30),
+                                    child: Center(
+                                      child: Image.asset(
+                                        'lib/assets/chatbot_logo.png',
+                                        height: 100,
+                                        width: 200,
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Text(
+                                      'Use the Symptom Predictor instead',
+                                      style: TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w400),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }
+
+                            final message = _messages[index - 1];
+                            return Align(
+                              alignment: message['sender'] == 'user'
+                                  ? Alignment.centerRight
+                                  : Alignment.centerLeft,
+                              child: Container(
+                                margin: EdgeInsets.symmetric(
+                                    vertical: 4, horizontal: 8),
+                                padding: EdgeInsets.all(12),
+                                constraints: BoxConstraints(
+                                  maxWidth:
+                                      MediaQuery.of(context).size.width * 0.8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color.fromARGB(255, 22, 22, 22),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: MarkdownBody(
+                                  data: message['message'],
+                                  styleSheet: MarkdownStyleSheet(
+                                    p: const TextStyle(color: Colors.white),
+                                  ),
+                                  softLineBreak: true,
+                                ),
                               ),
-                              softLineBreak: true,
+                            );
+                          },
+                        ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _controller,
+                          style: TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            hintText: 'Describe your symptoms...',
+                            hintStyle: TextStyle(color: Colors.grey),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(20),
+                              borderSide: BorderSide(color: Colors.orange),
                             ),
                           ),
-                        );
-                      },
-                    ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      style: TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: 'Describe your symptoms...',
-                        hintStyle: TextStyle(color: Colors.grey),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          borderSide: BorderSide(color: Colors.orange),
                         ),
                       ),
-                    ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.send,
+                          color: Colors.orange,
+                        ),
+                        onPressed: _sendMessage,
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.send,
-                      color: Colors.orange,
-                    ),
-                    onPressed: _sendMessage,
-                  ),
-                ],
+                ),
+              ],
+            ),
+          ),
+          // Navigation button at top right
+          Positioned(
+            top: 10,
+            right: 10,
+            child: IconButton(
+              icon: Image.asset(
+                'lib/assets/chatbot_logo.png',
+                height: 40,
+                width: 40,
+              ),
+              onPressed: _navigateToSymptomPredictor,
+            ),
+          ),
+          // Floating button for navigation when top section scrolls out of view
+          if (_showFloatingButton)
+            Positioned(
+              top: 10,
+              right: 10,
+              child: FloatingActionButton(
+                onPressed: _navigateToSymptomPredictor,
+                backgroundColor: Colors.orange,
+                child: Image.asset(
+                  'lib/assets/chatbot_logo.png',
+                  height: 30,
+                  width: 30,
+                ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }

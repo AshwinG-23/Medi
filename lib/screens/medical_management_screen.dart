@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:photo_view/photo_view.dart';
+import 'package:flutter_pdfview/flutter_pdfview.dart';
 
 class MedicalManagementScreen extends StatefulWidget {
   const MedicalManagementScreen({super.key});
@@ -64,27 +65,64 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
     }
   }
 
-  void _viewCompleteDocument(String imagePath) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => Scaffold(
-          backgroundColor: Colors.black,
-          appBar: AppBar(
-            backgroundColor: Colors.black,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () => Navigator.of(context).pop(),
+  void _viewCompleteDocument(String filePath) {
+    if (filePath.toLowerCase().endsWith('.pdf')) {
+      // Handle PDF files
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => Scaffold(
+            backgroundColor: const Color.fromARGB(255, 30, 30, 30),
+            appBar: AppBar(
+              backgroundColor: const Color.fromARGB(255, 30, 30, 30),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+            body: PDFView(
+              filePath: filePath,
+              enableSwipe: true,
+              swipeHorizontal: true,
+              autoSpacing: true,
+              pageFling: true,
+              onRender: (pages) {
+                // Called when the PDF is rendered
+              },
+              onError: (error) {
+                // Handle errors
+                print(error.toString());
+              },
+              onPageError: (page, error) {
+                // Handle page-specific errors
+                print('$page: ${error.toString()}');
+              },
             ),
           ),
-          body: PhotoView(
-            imageProvider: FileImage(File(imagePath)),
-            minScale: PhotoViewComputedScale.contained,
-            maxScale: PhotoViewComputedScale.covered * 2,
-            backgroundDecoration: const BoxDecoration(color: Colors.black),
+        ),
+      );
+    } else {
+      // Handle image files
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => Scaffold(
+            backgroundColor: const Color.fromARGB(255, 30, 30, 30),
+            appBar: AppBar(
+              backgroundColor: const Color.fromARGB(255, 30, 30, 30),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+            body: PhotoView(
+              imageProvider: FileImage(File(filePath)),
+              minScale: PhotoViewComputedScale.contained,
+              maxScale: PhotoViewComputedScale.covered * 2,
+              backgroundDecoration: const BoxDecoration(color: Colors.black),
+            ),
           ),
         ),
-      ),
-    );
+      );
+    }
   }
 
   Future<void> _handleImageSelection(ImageSource source) async {
@@ -192,6 +230,7 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
         .format(DateTime.parse(prescription['timestamp']));
     final tags = prescription['tags'] as List;
     final title = '${tags.first} Prescription';
+    final isPdf = prescription['imagePath'].toLowerCase().endsWith('.pdf');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -223,12 +262,9 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
               ],
             ),
           ),
-
-          /// Image Preview with Button Overlaid
           Stack(
-            alignment: Alignment.center, // Center button over image
+            alignment: Alignment.center,
             children: [
-              /// Image Preview
               Container(
                 height: 150,
                 width: double.infinity,
@@ -237,23 +273,25 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
                     horizontal: BorderSide(color: Colors.grey[800]!, width: 1),
                   ),
                 ),
-                child: Image.file(
-                  File(prescription['imagePath']),
-                  fit: BoxFit.cover,
-                ),
+                child: isPdf
+                    ? Center(
+                        child: Icon(Icons.picture_as_pdf,
+                            color: Colors.red, size: 64),
+                      )
+                    : Image.file(
+                        File(prescription['imagePath']),
+                        fit: BoxFit.cover,
+                      ),
               ),
-
-              /// Positioned Button (Overlay)
               Positioned(
-                bottom: 10, // Adjust position over image
+                bottom: 10,
                 left: 20,
                 right: 20,
                 child: ElevatedButton(
                   onPressed: () =>
                       _viewCompleteDocument(prescription['imagePath']),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        Colors.black.withOpacity(0.7), // Transparent black
+                    backgroundColor: Colors.black.withOpacity(0.7),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -263,10 +301,11 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.list_alt, color: Colors.orange),
+                      Icon(isPdf ? Icons.picture_as_pdf : Icons.list_alt,
+                          color: Colors.orange),
                       const SizedBox(width: 8),
                       Text(
-                        "View Document",
+                        isPdf ? "View PDF" : "View Document",
                         style: TextStyle(
                           color: Colors.orange,
                           fontSize: 16,
@@ -287,7 +326,7 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color.fromARGB(255, 30, 30, 30),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

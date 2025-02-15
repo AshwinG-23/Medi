@@ -23,27 +23,44 @@ class _QuestionnaireScreenState extends State<QuestionnaireScreen> {
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4.0),
-        child: ElevatedButton.icon(
-          icon: Icon(
-            icon,
-            color: isSelected ? Colors.white : Colors.grey,
-            size: 24,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius:
+                BorderRadius.circular(20.0), // Match button's border radius
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black,
+                spreadRadius: 0.1,
+                blurRadius: 5,
+                offset: const Offset(0, 5),
+              ),
+            ],
           ),
-          label: Text(
-            gender,
-            style: TextStyle(
+          child: ElevatedButton.icon(
+            icon: Icon(
+              icon,
               color: isSelected ? Colors.white : Colors.grey,
-              fontSize: 16,
+              size: 24,
             ),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: isSelected ? Colors.blue : Colors.grey[900],
-            padding: const EdgeInsets.symmetric(vertical: 15),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8.0),
+            label: Text(
+              gender,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.grey,
+                fontSize: 16,
+              ),
             ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isSelected
+                  ? const Color(0xFF6295E2)
+                  : const Color(0xFF302D2D),
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20.0),
+              ),
+              elevation: 0, // Disable default button elevation
+            ),
+            onPressed: () => setState(() => _selectedGender = gender),
           ),
-          onPressed: () => setState(() => _selectedGender = gender),
         ),
       ),
     );
@@ -127,7 +144,7 @@ class _QuestionnaireScreenState extends State<QuestionnaireScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color(0xFF222121),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -136,75 +153,107 @@ class _QuestionnaireScreenState extends State<QuestionnaireScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(height: MediaQuery.of(context).size.height * 0.05),
-                const Text(
-                  'Complete Your Profile',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                Center(
+                  child: Image.asset('lib/assets/logo.png', height: 70),
+                ),
+                SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+                Center(
+                  child: const Text(
+                    'A little about yourself',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
                 const Text(
                   'Name',
-                  style: TextStyle(fontSize: 20, color: Colors.grey),
+                  style: TextStyle(fontSize: 20, color: Colors.white),
                 ),
                 const SizedBox(height: 5),
-                TextField(
-                  controller: _nameController,
-                  decoration: InputDecoration(
-                    hintText: "Enter your name",
-                    hintStyle: const TextStyle(color: Colors.grey),
-                    fillColor: Colors.grey[900],
-                    filled: true,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(18.0),
-                      borderSide: BorderSide.none,
-                    ),
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18.0),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black,
+                        spreadRadius: 0.1,
+                        blurRadius: 5,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
                   ),
-                  style: const TextStyle(color: Colors.white),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Date of Birth',
-                  style: TextStyle(fontSize: 20, color: Colors.grey),
-                ),
-                const SizedBox(height: 5),
-                InkWell(
-                  onTap: () => _selectDate(context),
-                  child: InputDecorator(
+                  child: TextField(
+                    controller: _nameController,
                     decoration: InputDecoration(
-                      hintText: "Select your date of birth",
+                      hintText: "Enter your name",
                       hintStyle: const TextStyle(color: Colors.grey),
-                      fillColor: Colors.grey[900],
+                      fillColor: Color(0xFF302D2D),
                       filled: true,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(18.0),
                         borderSide: BorderSide.none,
                       ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          _selectedDate == null
-                              ? "Select your date of birth"
-                              : "${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}",
-                          style: TextStyle(
-                            color: _selectedDate == null
-                                ? Colors.grey
-                                : Colors.white,
-                          ),
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Date of Birth',
+                  style: TextStyle(fontSize: 20, color: Colors.white),
+                ),
+                const SizedBox(height: 5),
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18.0),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black,
+                        spreadRadius: 0.1,
+                        blurRadius: 5,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: InkWell(
+                    onTap: () => _selectDate(context),
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        hintText: "Select your date of birth",
+                        hintStyle: const TextStyle(color: Colors.grey),
+                        fillColor: Color(0xFF302D2D),
+                        filled: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18.0),
+                          borderSide: BorderSide.none,
                         ),
-                        const Icon(Icons.calendar_today, color: Colors.grey),
-                      ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _selectedDate == null
+                                ? "Select your date of birth"
+                                : "${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}",
+                            style: TextStyle(
+                              color: _selectedDate == null
+                                  ? Colors.grey
+                                  : Colors.white,
+                            ),
+                          ),
+                          const Icon(Icons.calendar_today, color: Colors.grey),
+                        ],
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 20),
                 const Text(
                   'Gender',
-                  style: TextStyle(fontSize: 20, color: Colors.grey),
+                  style: TextStyle(fontSize: 20, color: Colors.white),
                 ),
                 const SizedBox(height: 10),
                 Row(
@@ -214,19 +263,25 @@ class _QuestionnaireScreenState extends State<QuestionnaireScreen> {
                     _buildGenderButton('Other', Icons.person_outline),
                   ],
                 ),
-                const SizedBox(height: 40),
-                ElevatedButton(
-                  onPressed: _submitQuestionnaire,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.0),
+                const SizedBox(height: 310),
+                Align(
+                  alignment: Alignment.center,
+                  child: FractionallySizedBox(
+                    widthFactor: 0.6, // 70% of the parent's width
+                    child: ElevatedButton(
+                      onPressed: _submitQuestionnaire,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6295E2),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20.0),
+                        ),
+                        minimumSize: const Size.fromHeight(50),
+                      ),
+                      child: const Text("Submit"),
                     ),
-                    minimumSize: const Size.fromHeight(50),
                   ),
-                  child: const Text("Submit"),
                 ),
               ],
             ),

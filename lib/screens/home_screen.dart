@@ -14,6 +14,7 @@ import 'login_screen.dart';
 import '../services/sos_service.dart';
 import '../services/background_fetch_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -78,23 +79,31 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _logout() async {
     try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.remove('userId');
+
       await _auth.signOut();
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-        (route) => false,
-      );
+
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          (route) => false,
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Logout failed: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Logout failed: $e')),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(100, 0, 0, 0),
+      backgroundColor: const Color.fromARGB(255, 30, 30, 30),
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 30, 30, 30),
         elevation: 0,
