@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../services/api_service.dart';
-import 'symtom_predictor_screen.dart';
+import '../screens/symtom_predictor_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -85,13 +85,16 @@ class ChatScreenState extends State<ChatScreen> {
     User? currentUser = _auth.currentUser;
     if (currentUser == null) return;
 
+    // Create context from the last 10 messages
     String context = _messages
+        .sublist(_messages.length - 10 < 0 ? 0 : _messages.length - 10)
         .map((msg) => "${msg['sender']}: ${msg['message']}")
         .join('\n');
 
     setState(() {
       _messages.add(
-          {'sender': 'user', 'message': symptom, 'timestamp': DateTime.now()});
+        {'sender': 'user', 'message': symptom, 'timestamp': DateTime.now()},
+      );
     });
     _controller.clear();
 
@@ -101,6 +104,7 @@ class ChatScreenState extends State<ChatScreen> {
       String response = await _apiService.getDiseases(context, symptom);
       final timestamp = DateTime.now().millisecondsSinceEpoch;
 
+      // Store the question and response pair in Firebase
       await _firestore
           .collection('users')
           .doc(currentUser.uid)
@@ -178,7 +182,7 @@ class ChatScreenState extends State<ChatScreen> {
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Text(
-                      'Click above to use Symtom Predictor',
+                      'Click above to use Symptom Predictor',
                       style: TextStyle(
                           color: Colors.grey,
                           fontSize: 18,
@@ -204,17 +208,35 @@ class ChatScreenState extends State<ChatScreen> {
                             margin: EdgeInsets.symmetric(
                                 vertical: 4, horizontal: 8),
                             padding: EdgeInsets.all(12),
+                            constraints: BoxConstraints(
+                              maxWidth: MediaQuery.of(context).size.width * 0.8,
+                            ),
                             decoration: BoxDecoration(
-                              color: Colors.black,
-                              border:
-                                  Border.all(color: Colors.grey, width: 0.5),
+                              color: message['sender'] == 'user'
+                                  ? Colors.blue
+                                  : const Color.fromARGB(255, 22, 22, 22),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: MarkdownBody(
-                              data: message['message']!,
+                              data: message['message'],
                               styleSheet: MarkdownStyleSheet(
-                                p: TextStyle(color: Colors.white),
+                                p: const TextStyle(color: Colors.white),
+                                h1: const TextStyle(
+                                    color: Colors.white, fontSize: 24),
+                                h2: const TextStyle(
+                                    color: Colors.white, fontSize: 20),
+                                strong: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold),
+                                listBullet:
+                                    const TextStyle(color: Colors.white),
+                                em: const TextStyle(color: Colors.white),
+                                blockquote:
+                                    const TextStyle(color: Colors.white),
+                                code: const TextStyle(color: Colors.white),
+                                listIndent: 20.0,
                               ),
+                              softLineBreak: true,
                             ),
                           ),
                         );

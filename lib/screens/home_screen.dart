@@ -13,6 +13,7 @@ import '../utils/location_data.dart';
 import 'login_screen.dart';
 import '../services/sos_service.dart';
 import '../services/background_fetch_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -93,9 +94,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color.fromARGB(100, 0, 0, 0),
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: const Color.fromARGB(255, 30, 30, 30),
         elevation: 0,
         leading: Builder(
           builder: (BuildContext context) {
@@ -140,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
               color: Colors.black,
               buttonBackgroundColor: Colors.black,
-              backgroundColor: Colors.grey[900]!,
+              backgroundColor: const Color.fromARGB(255, 29, 29, 29),
               animationCurve: Curves.easeInOut,
               animationDuration: const Duration(milliseconds: 600),
               onTap: (index) {
@@ -225,7 +226,7 @@ class HomeContentScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color.fromARGB(255, 30, 30, 30),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -293,7 +294,7 @@ class HomeContentScreen extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.grey[900],
+            color: const Color.fromARGB(255, 45, 45, 45),
             borderRadius: BorderRadius.circular(15),
           ),
           child: Column(
@@ -391,7 +392,7 @@ class HomeContentScreen extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.grey[900],
+            color: const Color.fromARGB(255, 45, 45, 45),
             borderRadius: BorderRadius.circular(15),
           ),
           child: Column(
@@ -439,12 +440,12 @@ class HomeContentScreen extends StatelessWidget {
                       LineChartBarData(
                         spots: sleepData,
                         isCurved: true,
-                        color: Colors.blue[400],
+                        color: Colors.orange,
                         barWidth: 2,
                         dotData: FlDotData(show: false),
                         belowBarData: BarAreaData(
                           show: true,
-                          color: Colors.blue.withOpacity(0.1),
+                          color: Colors.orange,
                         ),
                       ),
                     ],
@@ -485,44 +486,53 @@ class HomeContentScreen extends StatelessWidget {
             return Column(
               children: snapshot.data!.docs.map((doc) {
                 final data = doc.data() as Map<String, dynamic>;
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[900],
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(16),
-                    leading: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        data['imageUrl'] ?? '',
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            width: 80,
-                            height: 80,
-                            color: Colors.grey[800],
-                            child: Icon(Icons.image, color: Colors.grey[600]),
-                          );
-                        },
-                      ),
+                return GestureDetector(
+                  onTap: () {
+                    // Open the article URL when tapped
+                    if (data['articleUrl'] != null &&
+                        data['articleUrl'].isNotEmpty) {
+                      launchUrl(data['articleUrl']);
+                    }
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[900],
+                      borderRadius: BorderRadius.circular(15),
                     ),
-                    title: Text(
-                      data['title'] ?? '',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.all(16),
+                      leading: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          data['imageUrl'] ?? '',
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              width: 80,
+                              height: 80,
+                              color: Colors.grey[800],
+                              child: Icon(Icons.image, color: Colors.grey[600]),
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                    subtitle: Text(
-                      data['subtitle'] ?? '',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: Colors.grey[400],
+                      title: Text(
+                        data['title'] ?? '',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                      subtitle: Text(
+                        data['subtitle'] ?? '',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.grey[400],
+                        ),
                       ),
                     ),
                   ),

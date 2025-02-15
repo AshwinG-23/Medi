@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../utils/location_data.dart';
-import '../services/background_fetch_service.dart';
 import 'dart:async';
+import 'package:decorated_icon/decorated_icon.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class NearbyAssistanceScreen extends StatefulWidget {
@@ -46,17 +46,28 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
 
   void _adjustMapZoom() {
     if (_appData.userLocation != null && _appData.nearbyHospitals.isNotEmpty) {
-      final farthestHospital = _appData.nearbyHospitals.last;
-      final coordinates = farthestHospital["geometry"]["coordinates"] as List;
-      final hospitalLocation = LatLng(coordinates[1], coordinates[0]);
-      final bounds =
-          LatLngBounds.fromPoints([_appData.userLocation!, hospitalLocation]);
+      // Create a list of points including user location and all visible hospitals
+      List<LatLng> points = [_appData.userLocation!];
+
+      // Add all hospital locations
+      for (var hospital in _appData.nearbyHospitals) {
+        final coordinates = hospital["geometry"]["coordinates"] as List;
+        points.add(LatLng(coordinates[1], coordinates[0]));
+      }
+
+      // Calculate bounds that include all points
+      final bounds = LatLngBounds.fromPoints(points);
+
+      // Fit the map to these bounds
       _mapController.fitCamera(
         CameraFit.bounds(
           bounds: bounds,
-          padding: EdgeInsets.all(50), // Optional padding
+          padding: const EdgeInsets.all(50),
         ),
       );
+
+      // After fitting bounds, center back on user
+      _mapController.move(_appData.userLocation!, _mapController.camera.zoom);
     }
   }
 
@@ -135,6 +146,7 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
             if (!_showHospitalsList && !_showHospitalInfo)
               _buildListToggleButton(),
             if (_isLoading) _buildLoadingIndicator(),
+            _buildGradientOverlayMain(),
           ],
         ),
       ),
@@ -154,8 +166,18 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
         onTap: (_, __) => _closeModals(),
         keepAlive: true,
         interactionOptions: InteractionOptions(
-          flags: InteractiveFlag.all,
+          flags: InteractiveFlag.all &
+              ~InteractiveFlag.rotate, // Disable rotation for better UX
         ),
+        onMapEvent: (event) {
+          // If user manually pans away from center, add a button to recenter
+          if (event is MapEventMove &&
+              _mapController.camera.center != _appData.userLocation) {
+            setState(() {
+              _showRecenterButton = true;
+            });
+          }
+        },
       ),
       children: [
         TileLayer(
@@ -168,9 +190,30 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
             ..._buildHospitalMarkers(),
           ],
         ),
+        if (_showRecenterButton) _buildRecenterButton(),
       ],
     );
   }
+
+  Widget _buildRecenterButton() {
+    return Positioned(
+      right: 20,
+      bottom: 100,
+      child: FloatingActionButton(
+        backgroundColor: _colors.card,
+        child: Icon(Icons.center_focus_strong, color: _colors.primary),
+        onPressed: () {
+          _mapController.move(
+              _appData.userLocation!, _mapController.camera.zoom);
+          setState(() {
+            _showRecenterButton = false;
+          });
+        },
+      ),
+    );
+  }
+
+  bool _showRecenterButton = false;
 
   Marker _buildUserLocationMarker() {
     return Marker(
@@ -194,14 +237,45 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
         point: location,
         child: GestureDetector(
           onTap: () => _onHospitalPinTap(index),
-          child: Icon(
-            Icons.pin_drop_sharp,
-            color: _selectedHospitalIndex == index ? Colors.red : Colors.green,
-            size: 40,
+          child: DecoratedIcon(
+            Icons.location_on_outlined,
+            color: _selectedHospitalIndex == index
+                ? Colors.black
+                : const Color.fromARGB(255, 99, 99, 99),
+            size: 40.0,
+            shadows: [
+              BoxShadow(
+                blurRadius: 5.0,
+                color: const Color.fromARGB(255, 0, 0, 0),
+              ),
+            ],
           ),
         ),
       );
     }).toList();
+  }
+
+  Widget _buildGradientOverlayMain() {
+    double screenHeight = MediaQuery.of(context).size.height;
+    return Positioned(
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        height: 200,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.black.withOpacity(0.0),
+              Colors.black.withOpacity(0.5),
+              const Color.fromARGB(255, 0, 0, 0),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildGradientOverlay() {
@@ -231,10 +305,10 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
       left: 20,
       right: 20,
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: _colors.card,
-          borderRadius: BorderRadius.circular(8),
+          color: const Color.fromARGB(88, 0, 0, 0),
+          borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.3),
@@ -253,7 +327,7 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
               min: 5,
               max: 55,
               divisions: 5,
-              activeColor: _colors.primary,
+              activeColor: Colors.black,
               label: "${(_appData.searchRadius / 1000).toStringAsFixed(1)} km",
               onChanged:
                   _onSearchRadiusChanged, // Triggered when slider value changes
@@ -373,7 +447,7 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.3),
+                color: Colors.black.withOpacity(0.5),
                 blurRadius: 10,
                 spreadRadius: 2,
               ),

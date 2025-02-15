@@ -12,7 +12,20 @@
           "package_name": "com.example.medisync"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "895891699906-f356grmr78t963195i4s485h97foj5sh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.medisync",
+            "certificate_hash": "7a50cc168f037dbb97785ed44be8dba1fc7c537d"
+          }
+        },
+        {
+          "client_id": "895891699906-49cefloqdls3n0fjln6i5iilbqn6eh2v.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBHL-hww6_TtrdpZdICjRL84ouZU5tpiDY"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "895891699906-49cefloqdls3n0fjln6i5iilbqn6eh2v.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

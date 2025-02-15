@@ -33,11 +33,31 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _resetPassword() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your email address')),
+      );
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password reset email sent')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to send reset email: $e')),
+      );
+    }
+  }
+
   Future<void> _loginWithEmailPassword() async {
     if (!_isTermsAccepted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Please accept the Terms and Privacy Policy')),
+        const SnackBar(content: Text('Please accept the Terms and Privacy Policy')),
       );
       return;
     }
@@ -48,7 +68,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
     try {
-      final UserCredential userCredential =
+      final UserCredential userCredential = 
           await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text,
         password: _passwordController.text,
@@ -67,15 +87,18 @@ class _LoginScreenState extends State<LoginScreen> {
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
       if (googleUser == null) return;
 
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      
+      if (googleAuth.accessToken == null || googleAuth.idToken == null) {
+        throw Exception('Failed to get Google auth tokens');
+      }
 
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      final UserCredential userCredential =
+      final UserCredential userCredential = 
           await FirebaseAuth.instance.signInWithCredential(credential);
 
       await _handleUserLogin(userCredential);
@@ -136,7 +159,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.black,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -154,6 +177,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -170,10 +194,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: InputDecoration(
                     hintText: "Enter your email",
                     hintStyle: const TextStyle(color: Colors.grey),
+                    fillColor: Colors.grey[900],
+                    filled: true,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(18.0),
+                      borderSide: BorderSide.none,
                     ),
                   ),
+                  style: const TextStyle(color: Colors.white),
                   keyboardType: TextInputType.emailAddress,
                 ),
                 const SizedBox(height: 20),
@@ -190,13 +218,24 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: InputDecoration(
                     hintText: "Enter your password",
                     hintStyle: const TextStyle(color: Colors.grey),
+                    fillColor: Colors.grey[900],
+                    filled: true,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(18.0),
+                      borderSide: BorderSide.none,
                     ),
                   ),
+                  style: const TextStyle(color: Colors.white),
                   obscureText: true,
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: _resetPassword,
+                  child: const Text(
+                    "Forgot Password?",
+                    style: TextStyle(color: Colors.blue),
+                  ),
+                ),
                 Row(
                   children: [
                     Checkbox(
@@ -206,9 +245,20 @@ class _LoginScreenState extends State<LoginScreen> {
                           _isTermsAccepted = value ?? false;
                         });
                       },
+                      fillColor: WidgetStateProperty.resolveWith<Color>(
+                        (Set<WidgetState> states) {
+                          if (states.contains(WidgetState.selected)) {
+                            return Colors.blue;
+                          }
+                          return Colors.grey;
+                        },
+                      ),
                     ),
                     const Expanded(
-                      child: Text("I agree with Terms and Privacy Policy"),
+                      child: Text(
+                        "I agree with Terms and Privacy Policy",
+                        style: TextStyle(color: Colors.grey),
+                      ),
                     ),
                   ],
                 ),
@@ -236,13 +286,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   label: const Text("Continue with Google"),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
+                    backgroundColor: Colors.grey[900],
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 15),
                     minimumSize: const Size.fromHeight(50),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8.0),
-                      side: const BorderSide(color: Colors.grey),
                     ),
                   ),
                 ),
@@ -252,7 +301,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: _navigateToSignUp,
                     child: const Text(
                       "Don't have an account? Sign Up",
-                      style: TextStyle(color: Colors.lightBlue),
+                      style: TextStyle(color: Colors.blue),
                     ),
                   ),
                 ),

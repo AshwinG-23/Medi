@@ -13,15 +13,13 @@ class SignUpScreen extends StatefulWidget {
 class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController =
-      TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
   bool _isTermsAccepted = false;
 
   Future<void> _signUp() async {
     if (!_isTermsAccepted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Please accept the Terms and Privacy Policy')),
+        const SnackBar(content: Text('Please accept the Terms and Privacy Policy')),
       );
       return;
     }
@@ -49,6 +47,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
         password: _passwordController.text,
       );
 
+      // Send email verification
+      await userCredential.user!.sendEmailVerification();
+
       // Create user document in Firestore
       await FirebaseFirestore.instance
           .collection('users')
@@ -57,7 +58,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
         'email': _emailController.text,
         'createdAt': FieldValue.serverTimestamp(),
         'isProfileComplete': false,
+        'emailVerified': false,
       });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Verification email sent. Please verify your email.'),
+        ),
+      );
 
       Navigator.pushReplacement(
         context,
@@ -75,7 +83,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.black,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -90,7 +98,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 SizedBox(height: MediaQuery.of(context).size.height * 0.05),
                 const Text(
                   'Sign Up',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 const Text(
@@ -102,10 +114,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   controller: _emailController,
                   decoration: InputDecoration(
                     hintText: "Enter your email",
+                    hintStyle: const TextStyle(color: Colors.grey),
+                    fillColor: Colors.grey[900],
+                    filled: true,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(18.0),
+                      borderSide: BorderSide.none,
                     ),
                   ),
+                  style: const TextStyle(color: Colors.white),
                   keyboardType: TextInputType.emailAddress,
                 ),
                 const SizedBox(height: 20),
@@ -118,10 +135,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   controller: _passwordController,
                   decoration: InputDecoration(
                     hintText: "Enter your password",
+                    hintStyle: const TextStyle(color: Colors.grey),
+                    fillColor: Colors.grey[900],
+                    filled: true,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(18.0),
+                      borderSide: BorderSide.none,
                     ),
                   ),
+                  style: const TextStyle(color: Colors.white),
                   obscureText: true,
                 ),
                 const SizedBox(height: 20),
@@ -134,10 +156,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   controller: _confirmPasswordController,
                   decoration: InputDecoration(
                     hintText: "Confirm your password",
+                    hintStyle: const TextStyle(color: Colors.grey),
+                    fillColor: Colors.grey[900],
+                    filled: true,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(18.0),
+                      borderSide: BorderSide.none,
                     ),
                   ),
+                  style: const TextStyle(color: Colors.white),
                   obscureText: true,
                 ),
                 const SizedBox(height: 20),
@@ -150,9 +177,20 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           _isTermsAccepted = value ?? false;
                         });
                       },
+                      fillColor: WidgetStateProperty.resolveWith<Color>(
+                        (Set<WidgetState> states) {
+                          if (states.contains(WidgetState.selected)) {
+                            return Colors.blue;
+                          }
+                          return Colors.grey;
+                        },
+                      ),
                     ),
                     const Expanded(
-                      child: Text("I agree with Terms and Privacy Policy"),
+                      child: Text(
+                        "I agree with Terms and Privacy Policy",
+                        style: TextStyle(color: Colors.grey),
+                      ),
                     ),
                   ],
                 ),
@@ -161,6 +199,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   onPressed: _signUp,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 15),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8.0),
