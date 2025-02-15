@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../utils/location_data.dart';
 import 'dart:async';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:decorated_icon/decorated_icon.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -137,16 +138,17 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
         body: Stack(
           children: [
             _buildMap(),
+            _buildGradientOverlayMain(),
+            if (_showRecenterButton) _buildRecenterButton(),
             if (_showHospitalInfo || _showHospitalsList)
               _buildGradientOverlay(),
             _buildSearchRadiusSlider(),
             if (_showHospitalInfo && _selectedHospitalIndex != -1)
               _buildHospitalInfo(),
             if (_showHospitalsList) _buildHospitalsList(),
+            if (_isLoading) _buildLoadingIndicator(),
             if (!_showHospitalsList && !_showHospitalInfo)
               _buildListToggleButton(),
-            if (_isLoading) _buildLoadingIndicator(),
-            _buildGradientOverlayMain(),
           ],
         ),
       ),
@@ -190,7 +192,6 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
             ..._buildHospitalMarkers(),
           ],
         ),
-        if (_showRecenterButton) _buildRecenterButton(),
       ],
     );
   }
@@ -261,18 +262,28 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
       bottom: 0,
       left: 0,
       right: 0,
-      child: Container(
-        height: 200,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.black.withOpacity(0.0),
-              Colors.black.withOpacity(0.5),
-              const Color.fromARGB(255, 0, 0, 0),
-            ],
-          ),
+      child: IgnorePointer(
+        child: Column(
+          children: [
+            Container(
+              height: 360, // Fading effect container
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.0),
+                    Colors.black.withOpacity(0.5),
+                    const Color.fromARGB(255, 30, 30, 30),
+                  ],
+                ),
+              ),
+            ),
+            Container(
+              height: 40, // Solid bar container
+              color: const Color.fromARGB(255, 30, 30, 30),
+            ),
+          ],
         ),
       ),
     );
@@ -307,7 +318,7 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: const Color.fromARGB(88, 0, 0, 0),
+          color: const Color.fromARGB(150, 0, 0, 0),
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
@@ -327,7 +338,7 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
               min: 5,
               max: 55,
               divisions: 5,
-              activeColor: Colors.black,
+              activeColor: Colors.grey,
               label: "${(_appData.searchRadius / 1000).toStringAsFixed(1)} km",
               onChanged:
                   _onSearchRadiusChanged, // Triggered when slider value changes
@@ -342,7 +353,7 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
     final hospital = _appData.nearbyHospitals[_selectedHospitalIndex];
     final name = hospital["properties"]["name"] ?? "Unknown";
     final address =
-        hospital["properties"]["address_line1"] ?? "No address available";
+        hospital["properties"]["address_line2"] ?? "No address available";
     final distance = hospital["properties"]["distance"];
 
     return AnimatedPositioned(
@@ -387,11 +398,6 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
                   Row(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.close),
-                        color: _colors.text.withOpacity(0.7),
-                        onPressed: _closeModals,
-                      ),
-                      IconButton(
                         icon: const Icon(Icons.directions),
                         color: _colors.primary,
                         onPressed: () {
@@ -399,6 +405,11 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
                               hospital["geometry"]["coordinates"] as List;
                           _navigateToHospital(coordinates[1], coordinates[0]);
                         },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        color: _colors.text.withOpacity(0.7),
+                        onPressed: _closeModals,
                       ),
                     ],
                   ),
@@ -559,7 +570,7 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
       child: ElevatedButton(
         onPressed: _toggleHospitalsList,
         style: ElevatedButton.styleFrom(
-          backgroundColor: _colors.card,
+          backgroundColor: Colors.black,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),

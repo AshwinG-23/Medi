@@ -1,36 +1,35 @@
-// api_service.dart
 import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  final String baseUrl =
-      'https://1392-2409-40c2-204a-c0d5-587b-410-1ee0-6948.ngrok-free.app';
+  static String? _baseUrl; // Cached base URL
 
-  String _processMarkdownText(String text) {
-    // First, handle escaped newlines
-    String processed = text.replaceAll('\\n', '\n');
+  Future<void> _fetchBaseUrl() async {
+    try {
+      DocumentSnapshot snapshot = await FirebaseFirestore.instance
+          .collection('config')
+          .doc('api')
+          .get();
 
-    // Handle double newlines that might have extra spaces
-    processed = processed.replaceAll('\n \n', '\n\n');
-
-    // Remove any JSON string escaping
-    processed = processed.replaceAll('\\"', '"');
-
-    // Ensure proper spacing for list items
-    processed = processed.replaceAll('*  ', '* ');
-
-    // Remove any potential HTML encoding
-    processed = processed.replaceAll('&nbsp;', ' ');
-
-    processed = processed.substring(1, processed.length - 1);
-
-    return processed;
+      if (snapshot.exists && snapshot.data() != null) {
+        _baseUrl = snapshot['baseUrl'];
+        print("Fetched base URL: $_baseUrl");
+      } else {
+        throw Exception("Base URL not found in Firestore.");
+      }
+    } catch (e) {
+      print("Error fetching base URL: $e");
+      throw Exception("Failed to fetch base URL.");
+    }
   }
 
   Future<String> getDiseases(String context, String symptom) async {
+    if (_baseUrl == null) await _fetchBaseUrl(); // Ensure base URL is available
+
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/general'),
+        Uri.parse('$_baseUrl/general'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -45,7 +44,6 @@ class ApiService {
       print('Response Body: ${response.body.codeUnits}');
 
       if (response.statusCode == 200) {
-        // The response is directly a string based on your backend code
         return _processMarkdownText(response.body);
       } else {
         throw Exception('Server returned status code: ${response.statusCode}');
@@ -57,9 +55,11 @@ class ApiService {
   }
 
   Future<String> getSymptoms(String symptom) async {
+    if (_baseUrl == null) await _fetchBaseUrl();
+
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/get_diseases'),
+        Uri.parse('$_baseUrl/get_diseases'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -73,7 +73,6 @@ class ApiService {
       print('Response Body: ${response.body.codeUnits}');
 
       if (response.statusCode == 200) {
-        // The response is directly a string based on your backend code
         return _processMarkdownText(response.body);
       } else {
         throw Exception('Server returned status code: ${response.statusCode}');
@@ -82,5 +81,15 @@ class ApiService {
       print('Error in API call: $e');
       throw Exception('Failed to communicate with server: $e');
     }
+  }
+
+  String _processMarkdownText(String text) {
+    String processed = text.replaceAll('\\n', '\n')
+        .replaceAll('\n \n', '\n\n')
+        .replaceAll('\\"', '"')
+        .replaceAll('*  ', '* ')
+        .replaceAll('&nbsp;', ' ');
+
+    return processed.substring(1, processed.length - 1);
   }
 }

@@ -19,6 +19,14 @@ class _SymptomPredictorScreenState extends State<SymptomPredictorScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   String _response = '';
   bool _isLoading = false;
+  bool _fetchingHistory = false;
+  List<Map<String, dynamic>> _history = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPreviousAnalysis();
+  }
 
   void _predictSymptoms() async {
     String symptom = _controller.text;
@@ -38,39 +46,64 @@ class _SymptomPredictorScreenState extends State<SymptomPredictorScreen> {
         _isLoading = false;
       });
 
-      // Store the question and response pair in Firebase
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      await _firestore
-          .collection('users')
-          .doc(currentUser.uid)
-          .collection('symptom_predictions')
-          .doc(timestamp.toString())
-          .set({
-        'symptom': symptom,
-        'response': response,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
+      if (response.isNotEmpty) {
+        await _firestore
+            .collection('users')
+            .doc(currentUser.uid)
+            .collection('symptom_predictions')
+            .add({
+          'symptom': symptom,
+          'response': response,
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+        _fetchPreviousAnalysis();
+      }
     } catch (e) {
       setState(() {
-        _response =
-            'Sorry, I encountered an error while analyzing your symptoms. Please try again.';
+        _response = 'Error analyzing symptoms. Please try again.';
         _isLoading = false;
       });
-      print('Error getting disease prediction: $e');
     }
   }
 
-  void _clearResponse() {
+  void _fetchPreviousAnalysis() async {
+    User? currentUser = _auth.currentUser;
+    if (currentUser == null) return;
+
     setState(() {
-      _response = '';
-      _controller.clear();
+      _fetchingHistory = true;
     });
+
+    try {
+      QuerySnapshot snapshot = await _firestore
+          .collection('users')
+          .doc(currentUser.uid)
+          .collection('symptom_predictions')
+          .orderBy('timestamp', descending: true)
+          .limit(5)
+          .get();
+
+      setState(() {
+        _history = snapshot.docs.map((doc) {
+          return {
+            'symptom': doc['symptom'],
+            'response': doc['response'],
+            'timestamp': (doc['timestamp'] as Timestamp).toDate().toString(),
+          };
+        }).toList();
+        _fetchingHistory = false;
+      });
+    } catch (e) {
+      setState(() {
+        _fetchingHistory = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color.fromARGB(255, 30, 30, 30),
       body: SafeArea(
         child: Column(
           children: [
@@ -86,7 +119,7 @@ class _SymptomPredictorScreenState extends State<SymptomPredictorScreen> {
                   Container(
                     width: double.infinity,
                     height: 140,
-                    color: Colors.black,
+                    color: const Color.fromARGB(255, 30, 30, 30),
                     child: Center(
                       child: Image.asset(
                         'lib/assets/chatbot_logo.png',
@@ -112,9 +145,49 @@ class _SymptomPredictorScreenState extends State<SymptomPredictorScreen> {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(8.0),
-                child: Column(
-                  children: [
-                    TextField(
+                child: _fetchingHistory
+                    ? Center(child: CircularProgressIndicator())
+                    : ListView(
+                        children: _history.map((entry) {
+                          return Card(
+                            color: const Color.fromARGB(255, 44, 44, 44),
+                            margin: const EdgeInsets.symmetric(vertical: 5),
+                            child: Padding(
+                              padding: const EdgeInsets.all(10),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "${entry['timestamp']}",
+                                    style: TextStyle(
+                                        color: Colors.white70, fontSize: 14),
+                                  ),
+                                  SizedBox(height: 5),
+                                  Text(
+                                    "Symptom: ${entry['symptom']}",
+                                    style: TextStyle(
+                                        color: Colors.white, fontSize: 16),
+                                  ),
+                                  SizedBox(height: 5),
+                                  Text(
+                                    "Prediction: ${entry['response']}",
+                                    style: TextStyle(
+                                        color: Colors.white, fontSize: 16),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
                       controller: _controller,
                       style: TextStyle(color: Colors.white),
                       decoration: InputDecoration(
@@ -126,50 +199,14 @@ class _SymptomPredictorScreenState extends State<SymptomPredictorScreen> {
                         ),
                       ),
                     ),
-                    SizedBox(height: 20),
-                    _isLoading
-                        ? CircularProgressIndicator()
-                        : _response.isNotEmpty
-                            ? Expanded(
-                                child: Markdown(
-                                  data: _response,
-                                  styleSheet: MarkdownStyleSheet(
-                                    p: const TextStyle(color: Colors.white),
-                                    h1: const TextStyle(
-                                        color: Colors.white, fontSize: 24),
-                                    h2: const TextStyle(
-                                        color: Colors.white, fontSize: 20),
-                                    strong: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold),
-                                    listBullet:
-                                        const TextStyle(color: Colors.white),
-                                    em: const TextStyle(color: Colors.white),
-                                    blockquote:
-                                        const TextStyle(color: Colors.white),
-                                    code: const TextStyle(color: Colors.white),
-                                    listIndent: 20.0,
-                                  ),
-                                  softLineBreak: true,
-                                ),
-                              )
-                            : Container(),
-                    SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        ElevatedButton(
-                          onPressed: _predictSymptoms,
-                          child: Text('Predict Symptoms'),
-                        ),
-                        ElevatedButton(
-                          onPressed: _clearResponse,
-                          child: Text('Try Again'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                  ),
+                  SizedBox(width: 10),
+                  FloatingActionButton(
+                    onPressed: _predictSymptoms,
+                    backgroundColor: Colors.orange,
+                    child: Icon(Icons.send, color: Colors.white),
+                  ),
+                ],
               ),
             ),
           ],
