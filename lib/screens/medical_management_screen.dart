@@ -151,7 +151,6 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
       context: context,
       barrierDismissible: false, // Prevent closing by tapping outside
       builder: (BuildContext dialogContext) => AlertDialog(
-        // Use dialogContext instead of context
         backgroundColor: Colors.grey[900],
         title: const Text(
           'Add Tags',
@@ -218,7 +217,7 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
               }
             },
             child:
-                const Text('Save', style: TextStyle(color: Colors.deepOrange)),
+            const Text('Save', style: TextStyle(color: Colors.deepOrange)),
           ),
         ],
       ),
@@ -235,8 +234,16 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.grey[900],
-        borderRadius: BorderRadius.circular(12),
+        color: const Color(0xFF302D2D),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black,
+            spreadRadius: 0.01,
+            blurRadius: 5,
+            offset: const Offset(0, 9),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -246,7 +253,7 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
             child: Row(
               children: [
                 Icon(Icons.description_outlined,
-                    color: Colors.deepOrange, size: 20),
+                    color: const Color(0xFFE38233), size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -262,61 +269,68 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
               ],
             ),
           ),
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                height: 150,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  border: Border.symmetric(
-                    horizontal: BorderSide(color: Colors.grey[800]!, width: 1),
-                  ),
-                ),
-                child: isPdf
-                    ? Center(
-                        child: Icon(Icons.picture_as_pdf,
-                            color: Colors.red, size: 64),
-                      )
-                    : Image.file(
-                        File(prescription['imagePath']),
-                        fit: BoxFit.cover,
-                      ),
-              ),
-              Positioned(
-                bottom: 10,
-                left: 20,
-                right: 20,
-                child: ElevatedButton(
-                  onPressed: () =>
-                      _viewCompleteDocument(prescription['imagePath']),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black.withOpacity(0.7),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+          Padding(
+            padding: const EdgeInsets.all(16), // Add padding around the Stack
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  height: 150,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.symmetric(
+                      horizontal: BorderSide(color: Colors.grey[800]!, width: 1),
                     ),
-                    elevation: 4,
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(isPdf ? Icons.picture_as_pdf : Icons.list_alt,
-                          color: Colors.orange),
-                      const SizedBox(width: 8),
-                      Text(
-                        isPdf ? "View PDF" : "View Document",
-                        style: TextStyle(
-                          color: Colors.orange,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+                  child: isPdf
+                      ? Center(
+                    child: Icon(Icons.picture_as_pdf,
+                        color: const Color(0xFFE38233), size: 64),
+                  )
+                      : ClipRRect(
+                    borderRadius: BorderRadius.circular(20), // Add border radius here
+                    child: Image.file(
+                      File(prescription['imagePath']),
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
-              ),
-            ],
+                Positioned(
+                  bottom: 10,
+                  left: 20,
+                  right: 20,
+                  child: ElevatedButton(
+                    onPressed: () =>
+                        _viewCompleteDocument(prescription['imagePath']),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black.withOpacity(0.8),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      elevation: 4,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(isPdf ? Icons.picture_as_pdf : Icons.list_alt,
+                            color: Colors.orange),
+                        const SizedBox(width: 8),
+                        Text(
+                          isPdf ? "View PDF" : "View Document",
+                          style: TextStyle(
+                            color: Colors.orange,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -351,7 +365,7 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.grey,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(17),
                 ),
                 child: TextField(
                   controller: _searchController,
@@ -364,11 +378,11 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
                       margin: const EdgeInsets.all(8),
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.deepOrange,
+                        color: const Color(0xFFE38233),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child:
-                          const Icon(Icons.tune, color: Colors.white, size: 20),
+                      const Icon(Icons.tune, color: Colors.white, size: 20),
                     ),
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(vertical: 15),
@@ -381,43 +395,43 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
             Expanded(
               child: _prescriptionBox == null
                   ? const Center(
-                      child:
-                          CircularProgressIndicator(color: Colors.deepOrange))
+                  child:
+                  CircularProgressIndicator(color: const Color(0xFFE38233)))
                   : ValueListenableBuilder(
-                      valueListenable: _prescriptionBox!.listenable(),
-                      builder: (context, box, _) {
-                        final prescriptions =
-                            _getPrescriptions(_searchController.text);
+                valueListenable: _prescriptionBox!.listenable(),
+                builder: (context, box, _) {
+                  final prescriptions =
+                  _getPrescriptions(_searchController.text);
 
-                        if (prescriptions.isEmpty) {
-                          return Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.description_outlined,
-                                    size: 64, color: Colors.grey[600]),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'No prescriptions found',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ],
+                  if (prescriptions.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.description_outlined,
+                              size: 64, color: Colors.grey[600]),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No prescriptions found',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 16,
                             ),
-                          );
-                        }
+                          ),
+                        ],
+                      ),
+                    );
+                  }
 
-                        return ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: prescriptions.length,
-                          itemBuilder: (context, index) {
-                            return _buildPrescriptionCard(prescriptions[index]);
-                          },
-                        );
-                      },
-                    ),
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: prescriptions.length,
+                    itemBuilder: (context, index) {
+                      return _buildPrescriptionCard(prescriptions[index]);
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -445,7 +459,7 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
           ),
           FloatingActionButton(
             heroTag: 'main',
-            backgroundColor: Colors.deepOrange,
+            backgroundColor: const Color(0xFFE38233),
             child: AnimatedIcon(
               icon: AnimatedIcons.menu_close,
               progress: _animationController,
@@ -471,12 +485,12 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
 
     final prescriptions = _prescriptionBox!.values
         .map((item) {
-          // Convert Map<dynamic, dynamic> to Map<String, dynamic>
-          final map = item as Map<dynamic, dynamic>;
-          return map.map<String, dynamic>(
+      // Convert Map<dynamic, dynamic> to Map<String, dynamic>
+      final map = item as Map<dynamic, dynamic>;
+      return map.map<String, dynamic>(
             (key, value) => MapEntry(key.toString(), value),
-          );
-        })
+      );
+    })
         .toList()
         .where((item) => File(item['imagePath']).existsSync())
         .toList();
@@ -500,19 +514,21 @@ class FlowMenuDelegate extends FlowDelegate {
   @override
   void paintChildren(FlowPaintingContext context) {
     final size = context.size;
-    final xStart = size.width - 56;
-    final yStart = size.height - 56;
+    final xStart = size.width - 56; // Horizontal position (right side)
+    final yStart = size.height - 76; // Shift buttons higher by reducing this value
 
     for (int i = 0; i < context.childCount; i++) {
       final childSize = context.getChildSize(i)?.width ?? 56;
       final isLastItem = i == context.childCount - 1;
 
       if (isLastItem) {
+        // Position the main button (last item)
         context.paintChild(
           i,
           transform: Matrix4.translationValues(xStart, yStart, 0),
         );
       } else {
+        // Position the other buttons with an offset
         final offset = 70.0 * (i + 1) * animation.value;
         context.paintChild(
           i,

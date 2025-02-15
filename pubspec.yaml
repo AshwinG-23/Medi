@@ -52,10 +52,7 @@ flutter:
   uses-material-design: true
   
   assets:
-    - lib/assets/logo.png
-    - lib/assets/google_icon.png
-    - lib/assets/chatbot_logo.png
-    - lib/assets/navigateto_icon.svg
+    - lib/assets/
 
 # Move flutter_launcher_icons configuration outside of flutter section
 flutter_launcher_icons:

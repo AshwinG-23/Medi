@@ -12,6 +12,7 @@ import 'nearby_assistance_screen.dart';
 import '../utils/location_data.dart';
 import 'login_screen.dart';
 import '../services/sos_service.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../services/background_fetch_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -141,12 +142,36 @@ class _HomeScreenState extends State<HomeScreen> {
               key: _bottomNavKey,
               index: _currentIndex,
               height: 60.0,
-              items: const <Widget>[
-                Icon(Icons.home, size: 25, color: Colors.orange),
-                Icon(Icons.health_and_safety, size: 30, color: Colors.orange),
-                Icon(Icons.chat, size: 30, color: Colors.orange),
-                Icon(Icons.monitor_heart, size: 30, color: Colors.orange),
-                Icon(Icons.location_on, size: 30, color: Colors.orange),
+              items: <Widget>[
+                Icon(
+                  Icons.home,
+                  size: _currentIndex == 0 ? 30 : 25,
+                  color: _currentIndex == 0 ? Colors.orange : Colors.grey,
+                ),
+                SvgPicture.asset(
+                  'lib/assets/icon _Cardiogram_.svg',
+                  width: _currentIndex == 1 ? 30 : 25,
+                  height: _currentIndex == 1 ? 30 : 25,
+                  color: _currentIndex == 1 ? Colors.orange : Colors.grey,
+                ),
+                SvgPicture.asset(
+                  'lib/assets/icon _chatbot_.svg',
+                  width: _currentIndex == 2 ? 30 : 25,
+                  height: _currentIndex == 2 ? 30 : 25,
+                  color: _currentIndex == 2 ? Colors.orange : Colors.grey,
+                ),
+                SvgPicture.asset(
+                  'lib/assets/icon _Location_.svg',
+                  width: _currentIndex == 3 ? 30 : 25,
+                  height: _currentIndex == 3 ? 30 : 25,
+                  color: _currentIndex == 3 ? Colors.orange : Colors.grey,
+                ),
+                SvgPicture.asset(
+                  'lib/assets/icon_Alternate File_.svg',
+                  width: _currentIndex == 4 ? 30 : 25,
+                  height: _currentIndex == 4 ? 30 : 25,
+                  color: _currentIndex == 4 ? Colors.orange : Colors.grey,
+                ),
               ],
               color: Colors.black,
               buttonBackgroundColor: Colors.black,
@@ -262,15 +287,16 @@ class HomeContentScreen extends StatelessWidget {
         Text(
           "Hello Vikas,",
           style: GoogleFonts.poppins(
-            fontSize: 26,
+            fontSize: 40,
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
         ),
         Text(
-          "How is u rigggs doin?",
+          "How are you doing?\n"
+          "Do you need help with anything.....?",
           style: GoogleFonts.poppins(
-            fontSize: 16,
+            fontSize: 13,
             color: Colors.grey[400],
           ),
         ),
@@ -303,40 +329,65 @@ class HomeContentScreen extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color.fromARGB(255, 45, 45, 45),
-            borderRadius: BorderRadius.circular(15),
+            color: const Color(0xFF302D2D),
+            borderRadius: BorderRadius.circular(40),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black,
+                spreadRadius: 0.01,
+                blurRadius: 5,
+                offset: const Offset(0, 9),
+              ),
+            ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Stack(
             children: [
-              Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.local_fire_department, color: Colors.orange[400]),
-                  const SizedBox(width: 8),
-                  Text(
-                    "Calories",
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.orange[400],
-                    ),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.local_fire_department,
+                        color: Colors.orange[400],
+                        size: 40,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Calories",
+                        style: GoogleFonts.poppins(
+                          fontSize: 30,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange[400],
+                        ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 70),
                 ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                todayCalories.toStringAsFixed(0),
-                style: GoogleFonts.poppins(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              Text(
-                "Cal/Day",
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  color: Colors.grey[400],
+              Positioned(
+                bottom: 0,
+                left: 10,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      todayCalories.toStringAsFixed(0),
+                      style: GoogleFonts.poppins(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      "Cal/Day",
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
@@ -401,40 +452,65 @@ class HomeContentScreen extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color.fromARGB(255, 45, 45, 45),
-            borderRadius: BorderRadius.circular(15),
+            color: const Color(0xFF302D2D),
+            borderRadius: BorderRadius.circular(40),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black,
+                spreadRadius: 0.01,
+                blurRadius: 5,
+                offset: const Offset(0, 9),
+              ),
+            ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Stack(
             children: [
-              Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.bedtime, color: Colors.blue[400]),
-                  const SizedBox(width: 8),
-                  Text(
-                    "Sleep Cycle",
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.blue[400],
-                    ),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.bedtime,
+                        color: Colors.blue[400],
+                        size: 33,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Sleep Cycle",
+                        style: GoogleFonts.poppins(
+                          fontSize: 30,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue[400],
+                        ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 80),
                 ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                sleepTime,
-                style: GoogleFonts.poppins(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              Text(
-                "Sleep Time/Day",
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  color: Colors.grey[400],
+              Positioned(
+                bottom: 0,
+                left: 10,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      sleepTime,
+                      style: GoogleFonts.poppins(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      "Sleep Time/Day",
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
@@ -449,12 +525,12 @@ class HomeContentScreen extends StatelessWidget {
                       LineChartBarData(
                         spots: sleepData,
                         isCurved: true,
-                        color: Colors.orange,
+                        color: Colors.blue[400]!,
                         barWidth: 2,
                         dotData: FlDotData(show: false),
                         belowBarData: BarAreaData(
                           show: true,
-                          color: Colors.orange,
+                          color: Colors.blue.withOpacity(0.1),
                         ),
                       ),
                     ],
@@ -475,7 +551,7 @@ class HomeContentScreen extends StatelessWidget {
         Text(
           "Latest Articles",
           style: GoogleFonts.poppins(
-            fontSize: 20,
+            fontSize: 25,
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
@@ -506,8 +582,16 @@ class HomeContentScreen extends StatelessWidget {
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                      color: Colors.grey[900],
-                      borderRadius: BorderRadius.circular(15),
+                      color: const Color(0xFF302D2D),
+                      borderRadius: BorderRadius.circular(40),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black,
+                          spreadRadius: 0.01,
+                          blurRadius: 5,
+                          offset: const Offset(0, 9),
+                        ),
+                      ],
                     ),
                     child: ListTile(
                       contentPadding: const EdgeInsets.all(16),
