@@ -46,25 +46,6 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
     setState(() {});
   }
 
-  Future<void> _handleStorageSelection() async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx'],
-      );
-
-      if (result != null && result.files.single.path != null && mounted) {
-        _showTagsDialog(result.files.single.path!);
-      }
-    } on PlatformException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.message}')),
-        );
-      }
-    }
-  }
-
   void _viewCompleteDocument(String filePath) {
     if (filePath.toLowerCase().endsWith('.pdf')) {
       // Handle PDF files
@@ -125,27 +106,64 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
     }
   }
 
-  Future<void> _handleImageSelection(ImageSource source) async {
-    var status = source == ImageSource.camera
-        ? await Permission.camera.request()
-        : await Permission.photos.request();
+  Future<void> _handleStorageSelection() async {
+    try {
+      // Check and request storage permission
+      var status = await Permission.storage.status;
+      if (!status.isGranted) {
+        status = await Permission.storage.request();
+      }
 
-    if (status.isDenied) {
+      if (status.isGranted) {
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx'],
+        );
+
+        if (result != null && result.files.single.path != null && mounted) {
+          _showNameAndTagsDialog(result.files.single.path!);
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Storage permission is required')),
+          );
+        }
+      }
+    } on PlatformException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.message}')),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleImageSelection(ImageSource source) async {
+    Permission permission =
+        source == ImageSource.camera ? Permission.camera : Permission.photos;
+
+    var status = await permission.status;
+    if (!status.isGranted) {
+      status = await permission.request();
+    }
+
+    if (status.isGranted) {
+      final pickedFile = await _imagePicker.pickImage(source: source);
+      if (pickedFile != null && mounted) {
+        _showNameAndTagsDialog(pickedFile.path);
+      }
+    } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Permission is required')),
         );
       }
-      return;
-    }
-
-    final pickedFile = await _imagePicker.pickImage(source: source);
-    if (pickedFile != null && mounted) {
-      _showTagsDialog(pickedFile.path);
     }
   }
 
-  void _showTagsDialog(String imagePath) {
+  void _showNameAndTagsDialog(String filePath) {
+    final nameController = TextEditingController();
     final tagsController = TextEditingController();
     showDialog(
       context: context,
@@ -153,19 +171,36 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
       builder: (BuildContext dialogContext) => AlertDialog(
         backgroundColor: Colors.grey[900],
         title: const Text(
-          'Add Tags',
+          'Add Name and Tags',
           style: TextStyle(color: Colors.white),
         ),
-        content: TextField(
-          controller: tagsController,
-          style: const TextStyle(color: Colors.white),
-          decoration: InputDecoration(
-            hintText: 'Enter tags separated by commas',
-            hintStyle: TextStyle(color: Colors.grey[400]),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.grey[700]!),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Enter prescription name',
+                hintStyle: TextStyle(color: Colors.grey[400]),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.grey[700]!),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: tagsController,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Enter tags separated by commas',
+                hintStyle: TextStyle(color: Colors.grey[400]),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.grey[700]!),
+                ),
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -174,7 +209,9 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
           ),
           TextButton(
             onPressed: () async {
-              if (tagsController.text.trim().isNotEmpty) {
+              if (nameController.text.trim().isNotEmpty &&
+                  tagsController.text.trim().isNotEmpty) {
+                final name = nameController.text.trim();
                 final tags = tagsController.text
                     .split(',')
                     .map((e) => e.trim().toLowerCase())
@@ -184,7 +221,8 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
 
                 final prescription = {
                   'id': id,
-                  'imagePath': imagePath,
+                  'name': name,
+                  'imagePath': filePath,
                   'tags': tags,
                   'timestamp': DateTime.now().toIso8601String(),
                 };
@@ -207,17 +245,17 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
                   setState(() {});
                 }
               } else {
-                // Show error for empty tags
+                // Show error for empty fields
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Please enter at least one tag'),
+                    content: Text('Please enter a name and at least one tag'),
                     backgroundColor: Colors.red,
                   ),
                 );
               }
             },
             child:
-            const Text('Save', style: TextStyle(color: Colors.deepOrange)),
+                const Text('Save', style: TextStyle(color: Colors.deepOrange)),
           ),
         ],
       ),
@@ -227,8 +265,9 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
   Widget _buildPrescriptionCard(Map<String, dynamic> prescription) {
     final date = DateFormat('dd/MM/yyyy')
         .format(DateTime.parse(prescription['timestamp']));
+    final name = prescription['name'];
     final tags = prescription['tags'] as List;
-    final title = '${tags.first} Prescription';
+    final title = '$name Prescription';
     final isPdf = prescription['imagePath'].toLowerCase().endsWith('.pdf');
 
     return Container(
@@ -256,13 +295,26 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
                     color: const Color(0xFFE38233), size: 20),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        tags.join(', '),
+                        style: TextStyle(
+                          color: Colors.grey[500],
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 Text(date, style: TextStyle(color: Colors.grey[500])),
@@ -280,21 +332,23 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
                     border: Border.symmetric(
-                      horizontal: BorderSide(color: Colors.grey[800]!, width: 1),
+                      horizontal:
+                          BorderSide(color: Colors.grey[800]!, width: 1),
                     ),
                   ),
                   child: isPdf
                       ? Center(
-                    child: Icon(Icons.picture_as_pdf,
-                        color: const Color(0xFFE38233), size: 64),
-                  )
+                          child: Icon(Icons.picture_as_pdf,
+                              color: const Color(0xFFE38233), size: 64),
+                        )
                       : ClipRRect(
-                    borderRadius: BorderRadius.circular(20), // Add border radius here
-                    child: Image.file(
-                      File(prescription['imagePath']),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
+                          borderRadius: BorderRadius.circular(
+                              20), // Add border radius here
+                          child: Image.file(
+                            File(prescription['imagePath']),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
                 ),
                 Positioned(
                   bottom: 10,
@@ -382,7 +436,7 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child:
-                      const Icon(Icons.tune, color: Colors.white, size: 20),
+                          const Icon(Icons.tune, color: Colors.white, size: 20),
                     ),
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(vertical: 15),
@@ -395,43 +449,43 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
             Expanded(
               child: _prescriptionBox == null
                   ? const Center(
-                  child:
-                  CircularProgressIndicator(color: Color(0xFFE38233)))
+                      child:
+                          CircularProgressIndicator(color: Color(0xFFE38233)))
                   : ValueListenableBuilder(
-                valueListenable: _prescriptionBox!.listenable(),
-                builder: (context, box, _) {
-                  final prescriptions =
-                  _getPrescriptions(_searchController.text);
+                      valueListenable: _prescriptionBox!.listenable(),
+                      builder: (context, box, _) {
+                        final prescriptions =
+                            _getPrescriptions(_searchController.text);
 
-                  if (prescriptions.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.description_outlined,
-                              size: 64, color: Colors.grey[600]),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No prescriptions found',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 16,
+                        if (prescriptions.isEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.description_outlined,
+                                    size: 64, color: Colors.grey[600]),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No prescriptions found',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
+                          );
+                        }
 
-                  return ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: prescriptions.length,
-                    itemBuilder: (context, index) {
-                      return _buildPrescriptionCard(prescriptions[index]);
-                    },
-                  );
-                },
-              ),
+                        return ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: prescriptions.length,
+                          itemBuilder: (context, index) {
+                            return _buildPrescriptionCard(prescriptions[index]);
+                          },
+                        );
+                      },
+                    ),
             ),
           ],
         ),
@@ -485,12 +539,12 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
 
     final prescriptions = _prescriptionBox!.values
         .map((item) {
-      // Convert Map<dynamic, dynamic> to Map<String, dynamic>
-      final map = item as Map<dynamic, dynamic>;
-      return map.map<String, dynamic>(
+          // Convert Map<dynamic, dynamic> to Map<String, dynamic>
+          final map = item as Map<dynamic, dynamic>;
+          return map.map<String, dynamic>(
             (key, value) => MapEntry(key.toString(), value),
-      );
-    })
+          );
+        })
         .toList()
         .where((item) => File(item['imagePath']).existsSync())
         .toList();
@@ -515,7 +569,8 @@ class FlowMenuDelegate extends FlowDelegate {
   void paintChildren(FlowPaintingContext context) {
     final size = context.size;
     final xStart = size.width - 56; // Horizontal position (right side)
-    final yStart = size.height - 76; // Shift buttons higher by reducing this value
+    final yStart =
+        size.height - 76; // Shift buttons higher by reducing this value
 
     for (int i = 0; i < context.childCount; i++) {
       final childSize = context.getChildSize(i)?.width ?? 56;

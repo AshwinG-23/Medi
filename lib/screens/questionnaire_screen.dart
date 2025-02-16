@@ -6,7 +6,7 @@ import 'home_screen.dart';
 class QuestionnaireScreen extends StatefulWidget {
   final User? user;
 
-  const QuestionnaireScreen({super.key, this.user});
+  const QuestionnaireScreen({super.key, required this.user});
 
   @override
   _QuestionnaireScreenState createState() => _QuestionnaireScreenState();
@@ -102,6 +102,13 @@ class _QuestionnaireScreenState extends State<QuestionnaireScreen> {
         _selectedDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill in all fields')),
+      );
+      return;
+    }
+
+    if (widget.user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User not found')),
       );
       return;
     }

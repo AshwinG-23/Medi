@@ -197,17 +197,21 @@ class ChatScreenState extends State<ChatScreen> {
                             if (index == 0) {
                               return Column(
                                 children: [
-                                  Container(
-                                    width: double.infinity,
-                                    height: 140,
-                                    color:
-                                        const Color.fromARGB(255, 30, 30, 30),
-                                    child: Center(
-                                      child: Image.asset(
-                                        'lib/assets/chatbot_logo.png',
-                                        height: 100,
-                                        width: 200,
-                                        fit: BoxFit.contain,
+                                  GestureDetector(
+                                    onTap:
+                                        _navigateToSymptomPredictor, // Navigate on tap
+                                    child: Container(
+                                      width: double.infinity,
+                                      height: 140,
+                                      color:
+                                          const Color.fromARGB(255, 30, 30, 30),
+                                      child: Center(
+                                        child: Image.asset(
+                                          'lib/assets/chatbot_logo.png',
+                                          height: 100,
+                                          width: 200,
+                                          fit: BoxFit.contain,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -282,6 +286,9 @@ class ChatScreenState extends State<ChatScreen> {
                     ],
                   ),
                 ),
+                SizedBox(
+                  height: 17,
+                )
               ],
             ),
           ),
@@ -292,11 +299,11 @@ class ChatScreenState extends State<ChatScreen> {
               right: 10,
               child: FloatingActionButton(
                 onPressed: _navigateToSymptomPredictor,
-                backgroundColor: Colors.orange,
+                backgroundColor: const Color.fromARGB(255, 30, 30, 30),
                 child: Image.asset(
                   'lib/assets/chatbot_logo.png',
-                  height: 30,
-                  width: 30,
+                  height: 45,
+                  width: 45,
                 ),
               ),
             ),

@@ -49,14 +49,17 @@ class _HomeScreenState extends State<HomeScreen> {
     _startBackgroundFetching();
   }
 
+  void setCurrentIndex(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
   Future<void> _startBackgroundFetching() async {
-    // Fetch hospitals for all radii in the background
     final userLocation = await _fetchService.getCurrentLocation();
     if (userLocation != null) {
-      final hospitals =
-          await _fetchService.fetchHospitalsForAllRadii(userLocation);
-      _appData.updateData(
-          userLocation, hospitals); // Update AppData with fetched data
+      final hospitals = await _fetchService.fetchHospitalsForAllRadii(userLocation);
+      _appData.updateData(userLocation, hospitals);
     }
   }
 
@@ -121,16 +124,14 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           GestureDetector(
             onLongPress: () {
-              SosService.startLongPress(); // Start the timer on long press
+              SosService.startLongPress();
             },
             onLongPressEnd: (details) {
-              SosService.cancelLongPress(); // Cancel if released early
+              SosService.cancelLongPress();
             },
             child: IconButton(
               icon: const Icon(Icons.sos, color: Colors.red),
-              onPressed: () {
-                // Optional: Add another action if needed on normal press
-              },
+              onPressed: () {},
             ),
           ),
         ],
@@ -268,9 +269,9 @@ class HomeContentScreen extends StatelessWidget {
             children: [
               _buildHeader(),
               const SizedBox(height: 20),
-              _buildCaloriesCard(),
+              _buildCaloriesCard(context),
               const SizedBox(height: 20),
-              _buildSleepCard(),
+              _buildSleepCard(context),
               const SizedBox(height: 20),
               _buildArticles(),
             ],
@@ -304,243 +305,263 @@ class HomeContentScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCaloriesCard() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(FirebaseAuth.instance.currentUser?.uid)
-          .collection('medical_tracker')
-          .orderBy('timestamp', descending: true)
-          .limit(7)
-          .snapshots(),
-      builder: (context, snapshot) {
-        List<FlSpot> caloriesData = [];
-        double todayCalories = 0;
+  Widget _buildCaloriesCard(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        final homeState = context.findAncestorStateOfType<_HomeScreenState>();
+        homeState?.setCurrentIndex(1);
+      },
+      child: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('users')
+            .doc(FirebaseAuth.instance.currentUser?.uid)
+            .collection('medical_tracker')
+            .orderBy('timestamp', descending: true)
+            .limit(7)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return Container();
+          }
 
-        if (snapshot.hasData) {
+          List<FlSpot> caloriesData = [];
+          double totalCalories = 0;
+          int validEntries = 0;
+
           final documents = snapshot.data!.docs.reversed.toList();
           for (int i = 0; i < documents.length; i++) {
             final calories = (documents[i].data() as Map)['calories'] ?? 0.0;
-            caloriesData.add(FlSpot(i.toDouble(), calories.toDouble()));
-            if (i == documents.length - 1) todayCalories = calories.toDouble();
+            if (calories > 0) {
+              caloriesData.add(FlSpot(i.toDouble(), calories.toDouble()));
+              totalCalories += calories;
+              validEntries++;
+            }
           }
-        }
 
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF302D2D),
-            borderRadius: BorderRadius.circular(40),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black,
-                spreadRadius: 0.01,
-                blurRadius: 5,
-                offset: const Offset(0, 9),
-              ),
-            ],
-          ),
-          child: Stack(
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.local_fire_department,
-                        color: Colors.orange[400],
-                        size: 40,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        "Calories",
-                        style: GoogleFonts.poppins(
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orange[400],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 70),
-                ],
-              ),
-              Positioned(
-                bottom: 0,
-                left: 10,
-                child: Column(
+          final averageCalories =
+              validEntries > 0 ? totalCalories / validEntries : 0;
+
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF302D2D),
+              borderRadius: BorderRadius.circular(40),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black,
+                  spreadRadius: 0.01,
+                  blurRadius: 5,
+                  offset: const Offset(0, 9),
+                ),
+              ],
+            ),
+            child: Stack(
+              children: [
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      todayCalories.toStringAsFixed(0),
-                      style: GoogleFonts.poppins(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.local_fire_department,
+                          color: Colors.orange[400],
+                          size: 40,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          "Calories",
+                          style: GoogleFonts.poppins(
+                            fontSize: 30,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange[400],
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      "Cal/Day",
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: Colors.grey[400],
-                      ),
-                    ),
+                    const SizedBox(height: 70),
                   ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 100,
-                child: LineChart(
-                  LineChartData(
-                    gridData: FlGridData(show: false),
-                    titlesData: FlTitlesData(show: false),
-                    borderData: FlBorderData(show: false),
-                    lineBarsData: [
-                      LineChartBarData(
-                        spots: caloriesData,
-                        isCurved: true,
-                        color: Colors.orange[400],
-                        barWidth: 2,
-                        dotData: FlDotData(show: false),
-                        belowBarData: BarAreaData(
-                          show: true,
-                          color: Colors.orange.withOpacity(0.1),
+                Positioned(
+                  bottom: 0,
+                  left: 10,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Avg: ${averageCalories.toStringAsFixed(0)} Cal",
+                        style: GoogleFonts.poppins(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-            ],
-          ),
-        );
-      },
+                const SizedBox(height: 16),
+                Positioned(
+                  right: 10,
+                  bottom: 10,
+                  child: SizedBox(
+                    width: 100,
+                    height: 50,
+                    child: LineChart(
+                      LineChartData(
+                        gridData: FlGridData(show: false),
+                        titlesData: FlTitlesData(show: false),
+                        borderData: FlBorderData(show: false),
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: caloriesData,
+                            isCurved: true,
+                            color: Colors.orange[400]!,
+                            barWidth: 2,
+                            dotData: FlDotData(show: false),
+                            belowBarData: BarAreaData(
+                              show: true,
+                              color: Colors.orange.withOpacity(0.1),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildSleepCard() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(FirebaseAuth.instance.currentUser?.uid)
-          .collection('medical_tracker')
-          .orderBy('timestamp', descending: true)
-          .limit(7)
-          .snapshots(),
-      builder: (context, snapshot) {
-        List<FlSpot> sleepData = [];
-        String sleepTime = "0:00 AM";
+  Widget _buildSleepCard(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        final homeState = context.findAncestorStateOfType<_HomeScreenState>();
+        homeState?.setCurrentIndex(1);
+      },
+      child: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('users')
+            .doc(FirebaseAuth.instance.currentUser?.uid)
+            .collection('medical_tracker')
+            .orderBy('timestamp', descending: true)
+            .limit(7)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return Container();
+          }
 
-        if (snapshot.hasData) {
+          List<FlSpot> sleepData = [];
+          double totalSleepTime = 0;
+          int validEntries = 0;
+
           final documents = snapshot.data!.docs.reversed.toList();
           for (int i = 0; i < documents.length; i++) {
             final sleep = (documents[i].data() as Map)['sleep_hours'] ?? 0.0;
-            sleepData.add(FlSpot(i.toDouble(), sleep.toDouble()));
-            if (i == documents.length - 1) {
-              final sleepStart =
-                  (documents[i].data() as Map)['sleep_start'] as Timestamp?;
-              if (sleepStart != null) {
-                sleepTime = DateFormat('h:mm a').format(sleepStart.toDate());
-              }
+            if (sleep > 0) {
+              sleepData.add(FlSpot(i.toDouble(), sleep.toDouble()));
+              totalSleepTime += sleep;
+              validEntries++;
             }
           }
-        }
 
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF302D2D),
-            borderRadius: BorderRadius.circular(40),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black,
-                spreadRadius: 0.01,
-                blurRadius: 5,
-                offset: const Offset(0, 9),
-              ),
-            ],
-          ),
-          child: Stack(
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.bedtime,
-                        color: Colors.blue[400],
-                        size: 33,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        "Sleep Cycle",
-                        style: GoogleFonts.poppins(
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue[400],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 80),
-                ],
-              ),
-              Positioned(
-                bottom: 0,
-                left: 10,
-                child: Column(
+          final averageSleepTime =
+              validEntries > 0 ? totalSleepTime / validEntries : 0;
+
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF302D2D),
+              borderRadius: BorderRadius.circular(40),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black,
+                  spreadRadius: 0.01,
+                  blurRadius: 5,
+                  offset: const Offset(0, 9),
+                ),
+              ],
+            ),
+            child: Stack(
+              children: [
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      sleepTime,
-                      style: GoogleFonts.poppins(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.bedtime,
+                          color: Colors.blue[400],
+                          size: 33,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          "Sleep Cycle",
+                          style: GoogleFonts.poppins(
+                            fontSize: 30,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue[400],
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      "Sleep Time/Day",
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: Colors.grey[400],
-                      ),
-                    ),
+                    const SizedBox(height: 80),
                   ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 100,
-                child: LineChart(
-                  LineChartData(
-                    gridData: FlGridData(show: false),
-                    titlesData: FlTitlesData(show: false),
-                    borderData: FlBorderData(show: false),
-                    lineBarsData: [
-                      LineChartBarData(
-                        spots: sleepData,
-                        isCurved: true,
-                        color: Colors.blue[400]!,
-                        barWidth: 2,
-                        dotData: FlDotData(show: false),
-                        belowBarData: BarAreaData(
-                          show: true,
-                          color: Colors.blue.withOpacity(0.1),
+                Positioned(
+                  bottom: 0,
+                  left: 10,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Avg: ${averageSleepTime.toStringAsFixed(1)} hrs",
+                        style: GoogleFonts.poppins(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-            ],
-          ),
-        );
-      },
+                const SizedBox(height: 16),
+                Positioned(
+                  right: 10,
+                  bottom: 10,
+                  child: SizedBox(
+                    width: 100,
+                    height: 50,
+                    child: LineChart(
+                      LineChartData(
+                        gridData: FlGridData(show: false),
+                        titlesData: FlTitlesData(show: false),
+                        borderData: FlBorderData(show: false),
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: sleepData,
+                            isCurved: true,
+                            color: Colors.blue[400]!,
+                            barWidth: 2,
+                            dotData: FlDotData(show: false),
+                            belowBarData: BarAreaData(
+                              show: true,
+                              color: Colors.blue.withOpacity(0.1),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -565,7 +586,7 @@ class HomeContentScreen extends StatelessWidget {
               .snapshots(),
           builder: (context, snapshot) {
             if (!snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
+              return Container();
             }
 
             return Column(
@@ -573,7 +594,6 @@ class HomeContentScreen extends StatelessWidget {
                 final data = doc.data() as Map<String, dynamic>;
                 return GestureDetector(
                   onTap: () {
-                    // Open the article URL when tapped
                     if (data['articleUrl'] != null &&
                         data['articleUrl'].isNotEmpty) {
                       launchUrl(data['articleUrl']);
@@ -593,40 +613,51 @@ class HomeContentScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.all(16),
-                      leading: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          data['imageUrl'] ?? '',
-                          width: 80,
-                          height: 80,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              width: 80,
-                              height: 80,
-                              color: Colors.grey[800],
-                              child: Icon(Icons.image, color: Colors.grey[600]),
-                            );
-                          },
+                    child: Column(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            data['imageUrl'] ?? '',
+                            width: double.infinity,
+                            height: 150,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                width: double.infinity,
+                                height: 150,
+                                color: Colors.grey[800],
+                                child:
+                                    Icon(Icons.image, color: Colors.grey[600]),
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                      title: Text(
-                        data['title'] ?? '',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                data['title'] ?? '',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                data['subtitle'] ?? '',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: Colors.grey[400],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      subtitle: Text(
-                        data['subtitle'] ?? '',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color: Colors.grey[400],
-                        ),
-                      ),
+                      ],
                     ),
                   ),
                 );

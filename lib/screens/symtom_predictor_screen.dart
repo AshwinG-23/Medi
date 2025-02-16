@@ -108,32 +108,37 @@ class _SymptomPredictorScreenState extends State<SymptomPredictorScreen> {
           SafeArea(
             child: Column(
               children: [
-                Container(
-                  width: double.infinity,
-                  height: 140,
-                  color: const Color.fromARGB(255, 30, 30, 30),
-                  child: Center(
-                    child: Image.asset(
-                      'lib/assets/chatbot_logo.png',
-                      height: 100,
-                      width: 200,
-                      fit: BoxFit.contain,
+                InkWell(
+                  onTap: () {
+                    Navigator.pop(context);
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    height: 140,
+                    color: const Color.fromARGB(255, 30, 30, 30),
+                    child: Center(
+                      child: Image.asset(
+                        'lib/assets/chatbot_logo.png',
+                        height: 100,
+                        width: 200,
+                        fit: BoxFit.contain,
+                      ),
                     ),
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: Text(
-                    'Symptom Predictor',
+                    'Click above to use the General ChatBot instead',
                     style: TextStyle(
                         color: Colors.grey,
-                        fontSize: 18,
+                        fontSize: 13,
                         fontWeight: FontWeight.w400),
                   ),
                 ),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(8.0),
+                    padding: const EdgeInsets.all(12.0),
                     child: _fetchingHistory
                         ? Center(child: CircularProgressIndicator())
                         : ListView(
@@ -142,7 +147,7 @@ class _SymptomPredictorScreenState extends State<SymptomPredictorScreen> {
                                 color: const Color.fromARGB(255, 44, 44, 44),
                                 margin: const EdgeInsets.symmetric(vertical: 5),
                                 child: Padding(
-                                  padding: const EdgeInsets.all(10),
+                                  padding: const EdgeInsets.all(13),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,

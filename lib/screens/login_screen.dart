@@ -24,7 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.initState();
     _checkSession();
   }
-  
+
   Future<void> _checkSession() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? userId = prefs.getString('userId');
@@ -57,7 +57,8 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _loginWithEmailPassword() async {
     if (!_isTermsAccepted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please accept the Terms and Privacy Policy')),
+        const SnackBar(
+            content: Text('Please accept the Terms and Privacy Policy')),
       );
       return;
     }
@@ -68,7 +69,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
     try {
-      final UserCredential userCredential = 
+      final UserCredential userCredential =
           await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text,
         password: _passwordController.text,
@@ -87,8 +88,9 @@ class _LoginScreenState extends State<LoginScreen> {
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
       if (googleUser == null) return;
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
       if (googleAuth.accessToken == null || googleAuth.idToken == null) {
         throw Exception('Failed to get Google auth tokens');
       }
@@ -98,7 +100,7 @@ class _LoginScreenState extends State<LoginScreen> {
         idToken: googleAuth.idToken,
       );
 
-      final UserCredential userCredential = 
+      final UserCredential userCredential =
           await FirebaseAuth.instance.signInWithCredential(credential);
 
       await _handleUserLogin(userCredential);
@@ -135,7 +137,9 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!isProfileComplete) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const QuestionnaireScreen()),
+        MaterialPageRoute(
+          builder: (context) => QuestionnaireScreen(user: userCredential.user),
+        ),
       );
     } else {
       _navigateToHome();
@@ -217,7 +221,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     keyboardType: TextInputType.emailAddress,
                   ),
                 ),
-
                 const SizedBox(height: 20),
                 const Text(
                   'Password',
@@ -255,7 +258,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     obscureText: true,
                   ),
                 ),
-
                 const SizedBox(height: 10),
                 TextButton(
                   onPressed: _resetPassword,
@@ -293,7 +295,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 20),
                 Center(
                   child: FractionallySizedBox(
-                    widthFactor: 0.6, // Adjust this value to control the width (e.g., 0.8 = 80% of parent width)
+                    widthFactor:
+                        0.6, // Adjust this value to control the width (e.g., 0.8 = 80% of parent width)
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -343,7 +346,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           TextSpan(
                             text: "Don't have an account? ",
                             style: TextStyle(
-                              color: Colors.grey, // Grey color for the first part
+                              color:
+                                  Colors.grey, // Grey color for the first part
                               fontSize: 16, // Adjust font size as needed
                             ),
                           ),
@@ -352,7 +356,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: TextStyle(
                               color: Colors.blue, // Blue color for "Sign Up"
                               fontSize: 16, // Adjust font size as needed
-                              decoration: TextDecoration.underline, // Underline for "Sign Up"
+                              decoration: TextDecoration
+                                  .underline, // Underline for "Sign Up"
                             ),
                           ),
                         ],

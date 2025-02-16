@@ -4,7 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
-import '../services/api_service2.dart'; // Import the ApiService
+import '../services/api_service2.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 class HealthMonitorScreen extends StatefulWidget {
   const HealthMonitorScreen({super.key});
@@ -16,10 +17,10 @@ class HealthMonitorScreen extends StatefulWidget {
 class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final ApiService _apiService = ApiService(); // Initialize ApiService
+  final ApiService _apiService = ApiService();
 
   DateTime selectedDate = DateTime.now();
-  String expandedCard = 'Recommended Routine'; // Set default expanded card
+  String expandedCard = 'Recommended Routine';
 
   final TextEditingController _caloriePredictorController =
       TextEditingController();
@@ -28,10 +29,9 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
   TimeOfDay? _selectedSleepTime;
   bool showCalorieInput = false;
 
-  String predictedCalories = ''; // Move predictedCalories to the state
-  String recommendedRoutine =
-      'Waiting For more information'; // Cache for recommended routine
-  DateTime lastRoutineFetchTime = DateTime.now(); // Track last fetch time
+  String predictedCalories = '';
+  String recommendedRoutine = 'Waiting For more information';
+  DateTime lastRoutineFetchTime = DateTime.now();
 
   final ScrollController _dateSliderController = ScrollController();
 
@@ -39,12 +39,11 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
     try {
       final calories = await _apiService.getCalorieInfo(food);
       setState(() {
-        predictedCalories = calories; // Update predicted calories
+        predictedCalories = calories;
       });
     } catch (e) {
       setState(() {
-        predictedCalories =
-            'Error predicting calories: $e'; // Update with error message
+        predictedCalories = 'Error predicting calories: $e';
       });
     }
   }
@@ -60,9 +59,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
 
   Widget _buildDateSlider() {
     final now = DateTime.now();
-    final initialScrollIndex =
-    
-        7; // Today's date is at index 10 (middle of the list)
+    final initialScrollIndex = 7;
 
     return Container(
       height: 80,
@@ -70,7 +67,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
       child: ListView.builder(
         controller: _dateSliderController,
         scrollDirection: Axis.horizontal,
-        itemCount: 14, // 14 days (7 past and 7 future)
+        itemCount: 14,
         itemBuilder: (context, index) {
           final date = DateTime(now.year, now.month, now.day - 7 + index);
           final isSelected = DateUtils.isSameDay(date, selectedDate);
@@ -85,10 +82,9 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
                     setState(() {
                       selectedDate = date;
                     });
-                    // Animate to center the selected date
                     Future.delayed(Duration(milliseconds: 100), () {
                       _dateSliderController.animateTo(
-                        index * 20.0, // Adjust scroll offset
+                        index * 20.0,
                         duration: Duration(milliseconds: 300),
                         curve: Curves.easeInOut,
                       );
@@ -149,6 +145,14 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
       decoration: BoxDecoration(
         color: Colors.grey[900],
         borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black,
+            spreadRadius: 0.01,
+            blurRadius: 5,
+            offset: const Offset(0, 9),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -165,8 +169,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
             ),
             onTap: () {
               setState(() {
-                expandedCard =
-                    isExpanded ? '' : title; // Use empty string instead of null
+                expandedCard = isExpanded ? '' : title;
               });
             },
           ),
@@ -188,7 +191,6 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
         children: [
           Row(
             children: [
-              // Send Arrow Button
               Expanded(
                 child: TextField(
                   controller: _caloriePredictorController,
@@ -205,13 +207,12 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
                 onPressed: () async {
                   if (_caloriePredictorController.text.isNotEmpty) {
                     final foodItem = _caloriePredictorController.text;
-                    await predictCalories(foodItem); // Call predictCalories
+                    await predictCalories(foodItem);
                   }
                 },
               ),
             ],
           ),
-          // Display Predicted Calories
           if (predictedCalories.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 16.0),
@@ -318,7 +319,12 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
                 child: FutureBuilder<List<BarChartGroupData>>(
                   future: _getCalorieBars(),
                   builder: (context, snapshot) {
-                    if (snapshot.hasError) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return SpinKitThreeBounce(
+                        color: Colors.deepOrange,
+                        size: 30.0,
+                      );
+                    } else if (snapshot.hasError) {
                       return Text('Error: ${snapshot.error}');
                     } else {
                       return SizedBox(
@@ -360,7 +366,6 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
     }
   }
 
-  // Define the _addSleepEntry method
   Future<void> _addSleepEntry(TimeOfDay time) async {
     final user = _auth.currentUser;
     if (user != null) {
@@ -389,7 +394,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
         x: i,
         barRods: [
           BarChartRodData(
-            toY: calories.toDouble(), // Use toY instead of y
+            toY: calories.toDouble(),
             color: Colors.deepOrange,
           ),
         ],
@@ -475,7 +480,12 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
               FutureBuilder<List<FlSpot>>(
                 future: _getSleepSpots(),
                 builder: (context, snapshot) {
-                  if (snapshot.hasError) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return SpinKitThreeBounce(
+                      color: Colors.deepOrange,
+                      size: 30.0,
+                    );
+                  } else if (snapshot.hasError) {
                     return Text('Error: ${snapshot.error}');
                   } else {
                     return SizedBox(
@@ -488,7 +498,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
                           lineBarsData: [
                             LineChartBarData(
                               spots: snapshot.data ?? [],
-                              isCurved: false, // Sharp line curve
+                              isCurved: false,
                               color: Colors.deepOrange,
                               barWidth: 3,
                               dotData: FlDotData(show: false),
@@ -548,7 +558,12 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
       expandedContent: FutureBuilder<String>(
         future: _getRecommendedRoutine(),
         builder: (context, snapshot) {
-          if (snapshot.hasError) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return SpinKitThreeBounce(
+              color: Colors.deepOrange,
+              size: 30.0,
+            );
+          } else if (snapshot.hasError) {
             return Text('Error: ${snapshot.error}');
           } else {
             return Text(
@@ -577,7 +592,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
         sleepData.add(sleepTime.toString());
       }
 
-      final bmi = "25"; // Hardcoded BMI for now
+      final bmi = "25";
       final calorieString = calorieData.join(',');
       final sleepString = sleepData.join(',');
 

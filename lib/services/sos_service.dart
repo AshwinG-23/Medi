@@ -6,7 +6,7 @@ class SosService {
 
   /// Starts a timer and dials the emergency number if held for 1 second
   static void startLongPress() {
-    _timer = Timer(const Duration(seconds: 1), () {
+    _timer = Timer(const Duration(milliseconds: 50), () {
       _callEmergency();
     });
   }
