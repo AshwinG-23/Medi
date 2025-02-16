@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../utils/location_data.dart';
 import 'dart:async';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:decorated_icon/decorated_icon.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -398,8 +399,11 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
                   Row(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.directions),
-                        color: _colors.primary,
+                        icon: SvgPicture.asset(
+                          'lib/assets/google-map-icon.svg',
+                          width: 25,
+                          height: 25,
+                        ),
                         onPressed: () {
                           final coordinates =
                               hospital["geometry"]["coordinates"] as List;
@@ -548,8 +552,11 @@ class _NearbyAssistanceScreenState extends State<NearbyAssistanceScreen> {
               ],
             ),
             trailing: IconButton(
-              icon: const Icon(Icons.directions),
-              color: _colors.primary,
+              icon: SvgPicture.asset(
+                'lib/assets/google-map-icon.svg',
+                width: 25,
+                height: 25,
+              ),
               onPressed: () {
                 final coordinates = hospital["geometry"]["coordinates"] as List;
                 _navigateToHospital(coordinates[1], coordinates[0]);

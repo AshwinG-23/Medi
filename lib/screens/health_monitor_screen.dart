@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../services/api_service2.dart'; // Import the ApiService
 
 class HealthMonitorScreen extends StatefulWidget {
   const HealthMonitorScreen({super.key});
@@ -14,150 +16,64 @@ class HealthMonitorScreen extends StatefulWidget {
 class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final ApiService _apiService = ApiService(); // Initialize ApiService
 
   DateTime selectedDate = DateTime.now();
   String expandedCard = 'Recommended Routine'; // Set default expanded card
 
-  final TextEditingController _calorieInputController = TextEditingController();
+  final TextEditingController _caloriePredictorController =
+      TextEditingController();
+  final TextEditingController _calorieIntakeController =
+      TextEditingController();
   TimeOfDay? _selectedSleepTime;
   bool showCalorieInput = false;
 
-  // Mock function to simulate calorie prediction
-  int predictCalories(String food) {
-    return 250; // Mock implementation
+  String predictedCalories = ''; // Move predictedCalories to the state
+
+  Future<void> predictCalories(String food) async {
+    try {
+      final calories = await _apiService.getCalorieInfo(food);
+      setState(() {
+        predictedCalories = calories; // Update predicted calories
+      });
+    } catch (e) {
+      setState(() {
+        predictedCalories =
+            'Error predicting calories: $e'; // Update with error message
+      });
+    }
   }
 
   List<DateTime> _getWeekDates() {
     final List<DateTime> dates = [];
     final DateTime now = DateTime.now();
-    for (int i = -3; i <= 3; i++) {
+    for (int i = -7; i <= 0; i++) {
       dates.add(DateTime(now.year, now.month, now.day + i));
     }
     return dates;
-  }
-
-  Future<void> _addCalorieEntry(int calories) async {
-    try {
-      final user = _auth.currentUser;
-      if (user != null) {
-        final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate);
-
-        await _firestore
-            .collection('users')
-            .doc(user.uid)
-            .collection('medical_tracker')
-            .doc('calories')
-            .collection(dateStr)
-            .add({
-          'calories': calories,
-          'timestamp': Timestamp.now(),
-        });
-
-        _calorieInputController.clear();
-        setState(() {
-          showCalorieInput = false;
-        });
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error adding calorie entry: $e')),
-      );
-    }
-  }
-
-  Future<void> _updateCalories(int calories) async {
-    try {
-      final user = _auth.currentUser;
-      if (user != null) {
-        final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate);
-
-        final querySnapshot = await _firestore
-            .collection('users')
-            .doc(user.uid)
-            .collection('medical_tracker')
-            .doc('calories')
-            .collection(dateStr)
-            .get();
-
-        if (querySnapshot.docs.isNotEmpty) {
-          final docId = querySnapshot.docs.first.id;
-          await _firestore
-              .collection('users')
-              .doc(user.uid)
-              .collection('medical_tracker')
-              .doc('calories')
-              .collection(dateStr)
-              .doc(docId)
-              .update({
-            'calories': calories,
-          });
-        } else {
-          await _firestore
-              .collection('users')
-              .doc(user.uid)
-              .collection('medical_tracker')
-              .doc('calories')
-              .collection(dateStr)
-              .add({
-            'calories': calories,
-            'timestamp': Timestamp.now(),
-          });
-        }
-
-        setState(() {});
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error updating calories: $e')),
-      );
-    }
-  }
-
-  Future<void> _addSleepEntry(TimeOfDay sleepTime) async {
-    try {
-      final user = _auth.currentUser;
-      if (user != null) {
-        final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate);
-
-        await _firestore
-            .collection('users')
-            .doc(user.uid)
-            .collection('medical_tracker')
-            .doc('sleep')
-            .collection(dateStr)
-            .add({
-          'sleep_time': '${sleepTime.hour}:${sleepTime.minute}',
-          'timestamp': Timestamp.now(),
-        });
-
-        setState(() {
-          _selectedSleepTime = null;
-        });
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error adding sleep entry: $e')),
-      );
-    }
   }
 
   Widget _buildDateSlider() {
     final now = DateTime.now();
     return Container(
       height: 80,
+      color: Colors.black, // Set background color to black
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        itemCount: 7,
+        itemCount: 14, // Allow scrolling for 14 days (7 past and 7 future)
         itemBuilder: (context, index) {
-          final date = _getWeekDates()[index];
+          final date = DateTime(now.year, now.month, now.day - 10 + index);
           final isSelected = DateUtils.isSameDay(date, selectedDate);
           final dayName = DateFormat('EEE').format(date).toUpperCase();
           final dayNum = date.day.toString();
           final isAfterToday = date.isAfter(now);
 
           return GestureDetector(
-            onTap:
-                isAfterToday ? null : () => setState(() => selectedDate = date),
+            onTap: isAfterToday
+                ? null
+                : () => setState(() {
+                      selectedDate = date; // Update selected date
+                    }),
             child: Container(
               width: 50,
               margin: EdgeInsets.symmetric(horizontal: 4),
@@ -249,34 +165,43 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
       icon: Icons.fastfood,
       expandedContent: Column(
         children: [
-          TextField(
-            controller: _calorieInputController,
-            style: TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              hintText: 'Enter food item',
-              hintStyle: TextStyle(color: Colors.grey),
-              border: InputBorder.none,
-            ),
-            onSubmitted: (value) {
-              if (value.isNotEmpty) {
-                final predictedCalories = predictCalories(value);
-                _calorieInputController.text = predictedCalories.toString();
-              }
-            },
+          Row(
+            children: [
+              // Send Arrow Button
+              Expanded(
+                child: TextField(
+                  controller: _caloriePredictorController,
+                  style: TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Enter food item',
+                    hintStyle: TextStyle(color: Colors.grey),
+                    border: InputBorder.none,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.send, color: Colors.deepOrange),
+                onPressed: () async {
+                  if (_caloriePredictorController.text.isNotEmpty) {
+                    final foodItem = _caloriePredictorController.text;
+                    await predictCalories(foodItem); // Call predictCalories
+                  }
+                },
+              ),
+            ],
           ),
-          SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () {
-              if (_calorieInputController.text.isNotEmpty) {
-                final calories = int.parse(_calorieInputController.text);
-                _addCalorieEntry(calories);
-              }
-            },
-            child: Text('Add Calories'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.deepOrange,
+          // Display Predicted Calories
+          if (predictedCalories.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 16.0),
+              child: MarkdownBody(
+                data: predictedCalories,
+                styleSheet: MarkdownStyleSheet(
+                  p: const TextStyle(color: Colors.white),
+                ),
+                softLineBreak: true,
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -307,7 +232,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
         }
 
         return _buildExpandableCard(
-          title: 'Food Intake',
+          title: 'Calorie Intake',
           icon: Icons.restaurant,
           expandedContent: Column(
             children: [
@@ -331,7 +256,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
                       setState(() {
                         showCalorieInput = !showCalorieInput;
                         if (!showCalorieInput) {
-                          _calorieInputController.clear();
+                          _calorieIntakeController.clear();
                         }
                       });
                     },
@@ -341,7 +266,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
               if (showCalorieInput) ...[
                 SizedBox(height: 16),
                 TextField(
-                  controller: _calorieInputController,
+                  controller: _calorieIntakeController,
                   style: TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     hintText: 'Enter calories',
@@ -358,30 +283,22 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
                 ),
               ],
               SizedBox(height: 16),
-              FutureBuilder<List<FlSpot>>(
-                future: _getCalorieSpots(),
+              FutureBuilder<List<BarChartGroupData>>(
+                future: _getCalorieBars(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return CircularProgressIndicator();
                   } else if (snapshot.hasError) {
                     return Text('Error: ${snapshot.error}');
                   } else {
-                    return Container(
+                    return SizedBox(
                       height: 200,
-                      child: LineChart(
-                        LineChartData(
+                      child: BarChart(
+                        BarChartData(
                           gridData: FlGridData(show: false),
                           titlesData: FlTitlesData(show: false),
                           borderData: FlBorderData(show: false),
-                          lineBarsData: [
-                            LineChartBarData(
-                              spots: snapshot.data!,
-                              isCurved: true,
-                              color: Colors.deepOrange,
-                              barWidth: 3,
-                              dotData: FlDotData(show: false),
-                            ),
-                          ],
+                          barGroups: snapshot.data!,
                         ),
                       ),
                     );
@@ -395,15 +312,59 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
     );
   }
 
-  Future<List<FlSpot>> _getCalorieSpots() async {
-    final List<FlSpot> spots = [];
+  Future<void> _updateCalories(int calories) async {
+    final user = _auth.currentUser;
+    if (user != null) {
+      final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate);
+      await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('medical_tracker')
+          .doc('calories')
+          .collection(dateStr)
+          .add({
+        'calories': calories,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+    }
+  }
+
+  // Define the _addSleepEntry method
+  Future<void> _addSleepEntry(TimeOfDay time) async {
+    final user = _auth.currentUser;
+    if (user != null) {
+      final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate);
+      final sleepTime = '${time.hour}:${time.minute}';
+      await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('medical_tracker')
+          .doc('sleep')
+          .collection(dateStr)
+          .add({
+        'sleep_time': sleepTime,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+    }
+  }
+
+  Future<List<BarChartGroupData>> _getCalorieBars() async {
+    final List<BarChartGroupData> bars = [];
     final List<DateTime> dates = _getWeekDates();
     for (int i = 0; i < dates.length; i++) {
       final dateStr = DateFormat('yyyy-MM-dd').format(dates[i]);
       final calories = await _getCaloriesForDate(dateStr);
-      spots.add(FlSpot(i.toDouble(), calories.toDouble()));
+      bars.add(BarChartGroupData(
+        x: i,
+        barRods: [
+          BarChartRodData(
+            toY: calories.toDouble(), // Use toY instead of y
+            color: Colors.deepOrange,
+          ),
+        ],
+      ));
     }
-    return spots;
+    return bars;
   }
 
   Future<int> _getCaloriesForDate(String dateStr) async {
@@ -421,7 +382,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
         return querySnapshot.docs.fold<int>(
           0,
           (sum, doc) {
-            final data = doc.data() as Map<String, dynamic>;
+            final data = doc.data();
             return sum + (data['calories'] as int);
           },
         );
@@ -431,59 +392,89 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
   }
 
   Widget _buildSleepCard() {
-    return _buildExpandableCard(
-      title: 'Sleep Cycle',
-      icon: Icons.bedtime,
-      expandedContent: Column(
-        children: [
-          ElevatedButton(
-            onPressed: () async {
-              final TimeOfDay? time = await showTimePicker(
-                context: context,
-                initialTime: TimeOfDay.now(),
-              );
-              if (time != null) {
-                _addSleepEntry(time);
-              }
-            },
-            child: Text('Add Sleep Time'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.deepOrange,
-            ),
-          ),
-          SizedBox(height: 16),
-          FutureBuilder<List<FlSpot>>(
-            future: _getSleepSpots(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return CircularProgressIndicator();
-              } else if (snapshot.hasError) {
-                return Text('Error: ${snapshot.error}');
-              } else {
-                return Container(
-                  height: 200,
-                  child: LineChart(
-                    LineChartData(
-                      gridData: FlGridData(show: false),
-                      titlesData: FlTitlesData(show: false),
-                      borderData: FlBorderData(show: false),
-                      lineBarsData: [
-                        LineChartBarData(
-                          spots: snapshot.data!,
-                          isCurved: true,
-                          color: Colors.deepOrange,
-                          barWidth: 3,
-                          dotData: FlDotData(show: false),
-                        ),
-                      ],
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore
+          .collection('users')
+          .doc(_auth.currentUser?.uid)
+          .collection('medical_tracker')
+          .doc('sleep')
+          .collection(DateFormat('yyyy-MM-dd').format(selectedDate))
+          .snapshots(),
+      builder: (context, snapshot) {
+        String sleepTime = "Not Entered";
+        if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+          final data = snapshot.data!.docs.first.data() as Map<String, dynamic>;
+          sleepTime = data['sleep_time'] as String;
+        }
+
+        return _buildExpandableCard(
+          title: 'Sleep Cycle',
+          icon: Icons.bedtime,
+          expandedContent: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Today\'s Sleep Time: $sleepTime',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                );
-              }
-            },
+                  IconButton(
+                    icon: Icon(
+                      Icons.edit,
+                      color: Colors.deepOrange,
+                    ),
+                    onPressed: () async {
+                      final TimeOfDay? time = await showTimePicker(
+                        context: context,
+                        initialTime: TimeOfDay.now(),
+                      );
+                      if (time != null) {
+                        _addSleepEntry(time);
+                      }
+                    },
+                  ),
+                ],
+              ),
+              SizedBox(height: 16),
+              FutureBuilder<List<FlSpot>>(
+                future: _getSleepSpots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return CircularProgressIndicator();
+                  } else if (snapshot.hasError) {
+                    return Text('Error: ${snapshot.error}');
+                  } else {
+                    return SizedBox(
+                      height: 200,
+                      child: LineChart(
+                        LineChartData(
+                          gridData: FlGridData(show: false),
+                          titlesData: FlTitlesData(show: false),
+                          borderData: FlBorderData(show: false),
+                          lineBarsData: [
+                            LineChartBarData(
+                              spots: snapshot.data!,
+                              isCurved: false, // Sharp line curve
+                              color: Colors.deepOrange,
+                              barWidth: 3,
+                              dotData: FlDotData(show: false),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -525,27 +516,54 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
     return _buildExpandableCard(
       title: 'Recommended Routine',
       icon: Icons.schedule,
-      expandedContent: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Based on your patterns:',
-            style: TextStyle(color: Colors.white, fontSize: 16),
-          ),
-          SizedBox(height: 8),
-          Text(
-            '• Recommended sleep time: 10:30 PM\n• Target daily calories: 2000 cal',
-            style: TextStyle(color: Colors.grey[400]),
-          ),
-        ],
+      expandedContent: FutureBuilder<String>(
+        future: _getRecommendedRoutine(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return CircularProgressIndicator();
+          } else if (snapshot.hasError) {
+            return Text('Error: ${snapshot.error}');
+          } else {
+            return Text(
+              snapshot.data ?? 'No recommendations available.',
+              style: TextStyle(color: Colors.white),
+            );
+          }
+        },
       ),
     );
+  }
+
+  Future<String> _getRecommendedRoutine() async {
+    final List<DateTime> dates = _getWeekDates();
+    final List<String> calorieData = [];
+    final List<String> sleepData = [];
+
+    for (final date in dates) {
+      final dateStr = DateFormat('yyyy-MM-dd').format(date);
+      final calories = await _getCaloriesForDate(dateStr);
+      final sleepTime = await _getSleepTimeForDate(dateStr);
+
+      calorieData.add(calories.toString());
+      sleepData.add(sleepTime.toString());
+    }
+
+    final bmi = "25"; // Hardcoded BMI for now
+    final calorieString = calorieData.join(',');
+    final sleepString = sleepData.join(',');
+
+    try {
+      return await _apiService.getRecommendedRoutine(
+          bmi, calorieString, sleepString);
+    } catch (e) {
+      return 'Error fetching recommendations: $e';
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color.fromARGB(255, 30, 30, 30),
       body: SafeArea(
         child: Column(
           children: [

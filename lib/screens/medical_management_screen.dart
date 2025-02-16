@@ -396,7 +396,7 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
               child: _prescriptionBox == null
                   ? const Center(
                   child:
-                  CircularProgressIndicator(color: const Color(0xFFE38233)))
+                  CircularProgressIndicator(color: Color(0xFFE38233)))
                   : ValueListenableBuilder(
                 valueListenable: _prescriptionBox!.listenable(),
                 builder: (context, box, _) {

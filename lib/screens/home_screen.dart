@@ -150,8 +150,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 SvgPicture.asset(
                   'lib/assets/icon _Cardiogram_.svg',
-                  width: _currentIndex == 1 ? 30 : 25,
-                  height: _currentIndex == 1 ? 30 : 25,
+                  width: _currentIndex == 1 ? 27 : 22,
+                  height: _currentIndex == 1 ? 27 : 22,
                   color: _currentIndex == 1 ? Colors.orange : Colors.grey,
                 ),
                 SvgPicture.asset(
