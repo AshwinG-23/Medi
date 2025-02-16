@@ -29,6 +29,11 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
   bool showCalorieInput = false;
 
   String predictedCalories = ''; // Move predictedCalories to the state
+  String recommendedRoutine =
+      'Waiting For more information'; // Cache for recommended routine
+  DateTime lastRoutineFetchTime = DateTime.now(); // Track last fetch time
+
+  final ScrollController _dateSliderController = ScrollController();
 
   Future<void> predictCalories(String food) async {
     try {
@@ -55,14 +60,19 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
 
   Widget _buildDateSlider() {
     final now = DateTime.now();
+    final initialScrollIndex =
+    
+        7; // Today's date is at index 10 (middle of the list)
+
     return Container(
       height: 80,
-      color: Colors.black, // Set background color to black
+      color: Colors.black,
       child: ListView.builder(
+        controller: _dateSliderController,
         scrollDirection: Axis.horizontal,
-        itemCount: 14, // Allow scrolling for 14 days (7 past and 7 future)
+        itemCount: 14, // 14 days (7 past and 7 future)
         itemBuilder: (context, index) {
-          final date = DateTime(now.year, now.month, now.day - 10 + index);
+          final date = DateTime(now.year, now.month, now.day - 7 + index);
           final isSelected = DateUtils.isSameDay(date, selectedDate);
           final dayName = DateFormat('EEE').format(date).toUpperCase();
           final dayNum = date.day.toString();
@@ -71,10 +81,21 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
           return GestureDetector(
             onTap: isAfterToday
                 ? null
-                : () => setState(() {
-                      selectedDate = date; // Update selected date
-                    }),
-            child: Container(
+                : () {
+                    setState(() {
+                      selectedDate = date;
+                    });
+                    // Animate to center the selected date
+                    Future.delayed(Duration(milliseconds: 100), () {
+                      _dateSliderController.animateTo(
+                        index * 20.0, // Adjust scroll offset
+                        duration: Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    });
+                  },
+            child: AnimatedContainer(
+              duration: Duration(milliseconds: 300),
               width: 50,
               margin: EdgeInsets.symmetric(horizontal: 4),
               decoration: BoxDecoration(
@@ -240,7 +261,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Today\'s Calories: $totalCalories',
+                    'Today\'s Calories:   $totalCalories',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 18,
@@ -248,9 +269,11 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: Icon(
-                      Icons.edit,
-                      color: Colors.deepOrange,
+                    icon: AnimatedSwitcher(
+                      duration: Duration(milliseconds: 300),
+                      child: showCalorieInput
+                          ? Icon(Icons.close, color: Colors.deepOrange)
+                          : Icon(Icons.add, color: Colors.deepOrange),
                     ),
                     onPressed: () {
                       setState(() {
@@ -263,47 +286,55 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
                   ),
                 ],
               ),
-              if (showCalorieInput) ...[
-                SizedBox(height: 16),
-                TextField(
-                  controller: _calorieIntakeController,
-                  style: TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: 'Enter calories',
-                    hintStyle: TextStyle(color: Colors.grey),
-                    border: InputBorder.none,
-                  ),
-                  keyboardType: TextInputType.number,
-                  onSubmitted: (value) {
-                    if (value.isNotEmpty) {
-                      final calories = int.parse(value);
-                      _updateCalories(calories);
+              AnimatedSize(
+                duration: Duration(milliseconds: 300),
+                child: showCalorieInput
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 16.0),
+                        child: TextField(
+                          controller: _calorieIntakeController,
+                          style: TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            hintText: 'Enter calories',
+                            hintStyle: TextStyle(color: Colors.grey),
+                            border: InputBorder.none,
+                          ),
+                          keyboardType: TextInputType.number,
+                          onSubmitted: (value) {
+                            if (value.isNotEmpty) {
+                              final calories = int.parse(value);
+                              _updateCalories(calories);
+                              setState(() {
+                                showCalorieInput = false;
+                              });
+                            }
+                          },
+                        ),
+                      )
+                    : SizedBox.shrink(),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 16.0),
+                child: FutureBuilder<List<BarChartGroupData>>(
+                  future: _getCalorieBars(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return Text('Error: ${snapshot.error}');
+                    } else {
+                      return SizedBox(
+                        height: 200,
+                        child: BarChart(
+                          BarChartData(
+                            gridData: FlGridData(show: false),
+                            titlesData: FlTitlesData(show: false),
+                            borderData: FlBorderData(show: false),
+                            barGroups: snapshot.data ?? [],
+                          ),
+                        ),
+                      );
                     }
                   },
                 ),
-              ],
-              SizedBox(height: 16),
-              FutureBuilder<List<BarChartGroupData>>(
-                future: _getCalorieBars(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return CircularProgressIndicator();
-                  } else if (snapshot.hasError) {
-                    return Text('Error: ${snapshot.error}');
-                  } else {
-                    return SizedBox(
-                      height: 200,
-                      child: BarChart(
-                        BarChartData(
-                          gridData: FlGridData(show: false),
-                          titlesData: FlTitlesData(show: false),
-                          borderData: FlBorderData(show: false),
-                          barGroups: snapshot.data!,
-                        ),
-                      ),
-                    );
-                  }
-                },
               ),
             ],
           ),
@@ -444,9 +475,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
               FutureBuilder<List<FlSpot>>(
                 future: _getSleepSpots(),
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return CircularProgressIndicator();
-                  } else if (snapshot.hasError) {
+                  if (snapshot.hasError) {
                     return Text('Error: ${snapshot.error}');
                   } else {
                     return SizedBox(
@@ -458,7 +487,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
                           borderData: FlBorderData(show: false),
                           lineBarsData: [
                             LineChartBarData(
-                              spots: snapshot.data!,
+                              spots: snapshot.data ?? [],
                               isCurved: false, // Sharp line curve
                               color: Colors.deepOrange,
                               barWidth: 3,
@@ -519,9 +548,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
       expandedContent: FutureBuilder<String>(
         future: _getRecommendedRoutine(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return CircularProgressIndicator();
-          } else if (snapshot.hasError) {
+          if (snapshot.hasError) {
             return Text('Error: ${snapshot.error}');
           } else {
             return Text(
@@ -535,28 +562,38 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
   }
 
   Future<String> _getRecommendedRoutine() async {
-    final List<DateTime> dates = _getWeekDates();
-    final List<String> calorieData = [];
-    final List<String> sleepData = [];
+    final now = DateTime.now();
+    if (now.hour >= 0 && now.hour < 12 && lastRoutineFetchTime.day != now.day) {
+      final List<DateTime> dates = _getWeekDates();
+      final List<String> calorieData = [];
+      final List<String> sleepData = [];
 
-    for (final date in dates) {
-      final dateStr = DateFormat('yyyy-MM-dd').format(date);
-      final calories = await _getCaloriesForDate(dateStr);
-      final sleepTime = await _getSleepTimeForDate(dateStr);
+      for (final date in dates) {
+        final dateStr = DateFormat('yyyy-MM-dd').format(date);
+        final calories = await _getCaloriesForDate(dateStr);
+        final sleepTime = await _getSleepTimeForDate(dateStr);
 
-      calorieData.add(calories.toString());
-      sleepData.add(sleepTime.toString());
-    }
+        calorieData.add(calories.toString());
+        sleepData.add(sleepTime.toString());
+      }
 
-    final bmi = "25"; // Hardcoded BMI for now
-    final calorieString = calorieData.join(',');
-    final sleepString = sleepData.join(',');
+      final bmi = "25"; // Hardcoded BMI for now
+      final calorieString = calorieData.join(',');
+      final sleepString = sleepData.join(',');
 
-    try {
-      return await _apiService.getRecommendedRoutine(
-          bmi, calorieString, sleepString);
-    } catch (e) {
-      return 'Error fetching recommendations: $e';
+      try {
+        final routine = await _apiService.getRecommendedRoutine(
+            bmi, calorieString, sleepString);
+        setState(() {
+          recommendedRoutine = routine;
+          lastRoutineFetchTime = now;
+        });
+        return routine;
+      } catch (e) {
+        return 'Error fetching recommendations: $e';
+      }
+    } else {
+      return recommendedRoutine;
     }
   }
 

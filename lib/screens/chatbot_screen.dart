@@ -214,10 +214,10 @@ class ChatScreenState extends State<ChatScreen> {
                                   Padding(
                                     padding: const EdgeInsets.all(8.0),
                                     child: Text(
-                                      'Use the Symptom Predictor instead',
+                                      'Click above to use the Symptom Predictor instead',
                                       style: TextStyle(
                                           color: Colors.grey,
-                                          fontSize: 18,
+                                          fontSize: 13,
                                           fontWeight: FontWeight.w400),
                                     ),
                                   ),
@@ -283,19 +283,6 @@ class ChatScreenState extends State<ChatScreen> {
                   ),
                 ),
               ],
-            ),
-          ),
-          // Navigation button at top right
-          Positioned(
-            top: 10,
-            right: 10,
-            child: IconButton(
-              icon: Image.asset(
-                'lib/assets/chatbot_logo.png',
-                height: 40,
-                width: 40,
-              ),
-              onPressed: _navigateToSymptomPredictor,
             ),
           ),
           // Floating button for navigation when top section scrolls out of view

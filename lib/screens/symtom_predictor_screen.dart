@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/api_service.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 class SymptomPredictorScreen extends StatefulWidget {
   const SymptomPredictorScreen({super.key});
@@ -146,23 +147,49 @@ class _SymptomPredictorScreenState extends State<SymptomPredictorScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        "${entry['timestamp']}",
-                                        style: TextStyle(
+                                      // Use MarkdownBody for timestamp
+                                      MarkdownBody(
+                                        data: "${entry['timestamp']}",
+                                        styleSheet: MarkdownStyleSheet(
+                                          p: TextStyle(
                                             color: Colors.white70,
-                                            fontSize: 14),
+                                            fontSize: 14,
+                                          ),
+                                        ),
                                       ),
                                       SizedBox(height: 5),
-                                      Text(
-                                        "Symptom: ${entry['symptom']}",
-                                        style: TextStyle(
-                                            color: Colors.white, fontSize: 16),
+                                      // Use MarkdownBody for symptom
+                                      MarkdownBody(
+                                        data:
+                                            "**Symptom:** ${entry['symptom']}",
+                                        styleSheet: MarkdownStyleSheet(
+                                          p: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 16,
+                                          ),
+                                          strong: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
                                       ),
                                       SizedBox(height: 5),
-                                      Text(
-                                        "Prediction: ${entry['response']}",
-                                        style: TextStyle(
-                                            color: Colors.white, fontSize: 16),
+                                      // Use MarkdownBody for prediction
+                                      MarkdownBody(
+                                        data:
+                                            "**Prediction:** ${entry['response']}",
+                                        styleSheet: MarkdownStyleSheet(
+                                          p: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 16,
+                                          ),
+                                          strong: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -200,22 +227,6 @@ class _SymptomPredictorScreenState extends State<SymptomPredictorScreen> {
                   ),
                 ),
               ],
-            ),
-          ),
-          // Navigation button at top right
-          Positioned(
-            top: 10,
-            right: 10,
-            child: IconButton(
-              icon: Image.asset(
-                'lib/assets/chatbot_logo.png',
-                height: 40,
-                width: 40,
-              ),
-              onPressed: () {
-                // Navigate back to the ChatScreen using pop
-                Navigator.pop(context);
-              },
             ),
           ),
         ],
