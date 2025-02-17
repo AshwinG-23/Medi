@@ -217,7 +217,7 @@ class _SymptomPredictorScreenState extends State<SymptomPredictorScreen> {
                             hintStyle: TextStyle(color: Colors.grey),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(20),
-                              borderSide: BorderSide(color: Colors.orange),
+                              borderSide: BorderSide(color: Colors.deepOrange),
                             ),
                           ),
                         ),
@@ -225,7 +225,7 @@ class _SymptomPredictorScreenState extends State<SymptomPredictorScreen> {
                       SizedBox(width: 10),
                       FloatingActionButton(
                         onPressed: _predictSymptoms,
-                        backgroundColor: Colors.orange,
+                        backgroundColor: Colors.deepOrange,
                         child: Icon(Icons.send, color: Colors.white),
                       ),
                     ],

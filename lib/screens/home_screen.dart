@@ -4,7 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import 'medical_management_screen.dart';
 import 'health_monitor_screen.dart';
 import 'chatbot_screen.dart';
@@ -13,6 +12,7 @@ import '../utils/location_data.dart';
 import 'login_screen.dart';
 import '../services/sos_service.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:intl/intl.dart';
 import '../services/background_fetch_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -58,7 +58,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _startBackgroundFetching() async {
     final userLocation = await _fetchService.getCurrentLocation();
     if (userLocation != null) {
-      final hospitals = await _fetchService.fetchHospitalsForAllRadii(userLocation);
+      final hospitals =
+          await _fetchService.fetchHospitalsForAllRadii(userLocation);
       _appData.updateData(userLocation, hospitals);
     }
   }
@@ -130,8 +131,22 @@ class _HomeScreenState extends State<HomeScreen> {
               SosService.cancelLongPress();
             },
             child: IconButton(
-              icon: const Icon(Icons.sos, color: Colors.red),
               onPressed: () {},
+              icon: Container(
+                width: 30, // Size of the circular button
+                height: 30,
+                decoration: const BoxDecoration(
+                  color: Colors.red, // Red background
+                  shape: BoxShape.circle, // Circular shape
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.sos_rounded, // SOS icon
+                    color: Colors.black, // Black icon color
+                    size: 28, // Adjust size as needed
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -147,31 +162,31 @@ class _HomeScreenState extends State<HomeScreen> {
                 Icon(
                   Icons.home,
                   size: _currentIndex == 0 ? 30 : 25,
-                  color: _currentIndex == 0 ? Colors.orange : Colors.grey,
+                  color: _currentIndex == 0 ? Colors.deepOrange : Colors.grey,
                 ),
                 SvgPicture.asset(
                   'lib/assets/icon _Cardiogram_.svg',
                   width: _currentIndex == 1 ? 27 : 22,
                   height: _currentIndex == 1 ? 27 : 22,
-                  color: _currentIndex == 1 ? Colors.orange : Colors.grey,
+                  color: _currentIndex == 1 ? Colors.deepOrange : Colors.grey,
                 ),
                 SvgPicture.asset(
                   'lib/assets/icon _chatbot_.svg',
                   width: _currentIndex == 2 ? 30 : 25,
                   height: _currentIndex == 2 ? 30 : 25,
-                  color: _currentIndex == 2 ? Colors.orange : Colors.grey,
+                  color: _currentIndex == 2 ? Colors.deepOrange : Colors.grey,
                 ),
                 SvgPicture.asset(
                   'lib/assets/icon _Location_.svg',
                   width: _currentIndex == 3 ? 30 : 25,
                   height: _currentIndex == 3 ? 30 : 25,
-                  color: _currentIndex == 3 ? Colors.orange : Colors.grey,
+                  color: _currentIndex == 3 ? Colors.deepOrange : Colors.grey,
                 ),
                 SvgPicture.asset(
                   'lib/assets/icon_Alternate File_.svg',
                   width: _currentIndex == 4 ? 30 : 25,
                   height: _currentIndex == 4 ? 30 : 25,
-                  color: _currentIndex == 4 ? Colors.orange : Colors.grey,
+                  color: _currentIndex == 4 ? Colors.deepOrange : Colors.grey,
                 ),
               ],
               color: Colors.black,
@@ -260,6 +275,9 @@ class HomeContentScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final homeState = context.findAncestorStateOfType<_HomeScreenState>();
+    final userName = homeState?._userData?['name'] ?? 'User';
+
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 30, 30, 30),
       body: SafeArea(
@@ -267,7 +285,7 @@ class HomeContentScreen extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: ListView(
             children: [
-              _buildHeader(),
+              _buildHeader(userName, homeState),
               const SizedBox(height: 20),
               _buildCaloriesCard(context),
               const SizedBox(height: 20),
@@ -281,24 +299,29 @@ class HomeContentScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(String userName, _HomeScreenState? homeState) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          "Hello Vikas,",
+          "Hello $userName,",
           style: GoogleFonts.poppins(
             fontSize: 40,
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
         ),
-        Text(
-          "How are you doing?\n"
-          "Do you need help with anything.....?",
-          style: GoogleFonts.poppins(
-            fontSize: 13,
-            color: Colors.grey[400],
+        GestureDetector(
+          onTap: () {
+            homeState?.setCurrentIndex(2); // Navigate to Chatbot Screen
+          },
+          child: Text(
+            "How are you doing?\n"
+            "Do you need help with anything.....?",
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: Colors.grey[400],
+            ),
           ),
         ),
       ],
@@ -306,33 +329,51 @@ class HomeContentScreen extends StatelessWidget {
   }
 
   Widget _buildCaloriesCard(BuildContext context) {
+    final today = DateTime.now();
+    final List<String> last7Days = List.generate(7, (index) {
+      final date = today.subtract(Duration(days: index));
+      return DateFormat('yyyy-MM-dd').format(date);
+    }).reversed.toList(); // Reverse to show earlier dates on the left
+
     return GestureDetector(
       onTap: () {
         final homeState = context.findAncestorStateOfType<_HomeScreenState>();
         homeState?.setCurrentIndex(1);
       },
-      child: StreamBuilder<QuerySnapshot>(
+      child: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
             .collection('users')
             .doc(FirebaseAuth.instance.currentUser?.uid)
             .collection('medical_tracker')
-            .orderBy('timestamp', descending: true)
-            .limit(7)
+            .doc('calorie')
             .snapshots(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
+          if (!snapshot.hasData || !snapshot.data!.exists) {
             return Container();
           }
 
-          List<FlSpot> caloriesData = [];
+          final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+          List<BarChartGroupData> calorieBars = [];
           double totalCalories = 0;
           int validEntries = 0;
 
-          final documents = snapshot.data!.docs.reversed.toList();
-          for (int i = 0; i < documents.length; i++) {
-            final calories = (documents[i].data() as Map)['calories'] ?? 0.0;
+          for (int i = 0; i < last7Days.length; i++) {
+            final date = last7Days[i];
+            final calories =
+                double.tryParse(data[date]?.toString() ?? '0') ?? 0.0;
             if (calories > 0) {
-              caloriesData.add(FlSpot(i.toDouble(), calories.toDouble()));
+              calorieBars.add(
+                BarChartGroupData(
+                  x: i,
+                  barRods: [
+                    BarChartRodData(
+                      toY: calories,
+                      color: Colors.deepOrange[400]!,
+                      width: 12, // Width of each bar
+                    ),
+                  ],
+                ),
+              );
               totalCalories += calories;
               validEntries++;
             }
@@ -364,7 +405,7 @@ class HomeContentScreen extends StatelessWidget {
                       children: [
                         Icon(
                           Icons.local_fire_department,
-                          color: Colors.orange[400],
+                          color: Colors.deepOrange[400],
                           size: 40,
                         ),
                         const SizedBox(width: 8),
@@ -373,7 +414,7 @@ class HomeContentScreen extends StatelessWidget {
                           style: GoogleFonts.poppins(
                             fontSize: 30,
                             fontWeight: FontWeight.bold,
-                            color: Colors.orange[400],
+                            color: Colors.deepOrange[400],
                           ),
                         ),
                       ],
@@ -388,11 +429,18 @@ class HomeContentScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Avg: ${averageCalories.toStringAsFixed(0)} Cal",
+                        '${averageCalories.truncate()}',
                         style: GoogleFonts.poppins(
-                          fontSize: 24,
+                          fontSize: 28,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        "Avg Cal/Day",
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.grey[400],
                         ),
                       ),
                     ],
@@ -405,24 +453,12 @@ class HomeContentScreen extends StatelessWidget {
                   child: SizedBox(
                     width: 100,
                     height: 50,
-                    child: LineChart(
-                      LineChartData(
+                    child: BarChart(
+                      BarChartData(
                         gridData: FlGridData(show: false),
                         titlesData: FlTitlesData(show: false),
                         borderData: FlBorderData(show: false),
-                        lineBarsData: [
-                          LineChartBarData(
-                            spots: caloriesData,
-                            isCurved: true,
-                            color: Colors.orange[400]!,
-                            barWidth: 2,
-                            dotData: FlDotData(show: false),
-                            belowBarData: BarAreaData(
-                              show: true,
-                              color: Colors.orange.withOpacity(0.1),
-                            ),
-                          ),
-                        ],
+                        barGroups: calorieBars,
                       ),
                     ),
                   ),
@@ -436,40 +472,67 @@ class HomeContentScreen extends StatelessWidget {
   }
 
   Widget _buildSleepCard(BuildContext context) {
+    final today = DateTime.now();
+    final List<String> last7Days = List.generate(7, (index) {
+      final date = today.subtract(Duration(days: index));
+      return DateFormat('yyyy-MM-dd').format(date);
+    }).reversed.toList(); // Reverse to show earlier dates on the left
+
     return GestureDetector(
       onTap: () {
         final homeState = context.findAncestorStateOfType<_HomeScreenState>();
         homeState?.setCurrentIndex(1);
       },
-      child: StreamBuilder<QuerySnapshot>(
+      child: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
             .collection('users')
             .doc(FirebaseAuth.instance.currentUser?.uid)
             .collection('medical_tracker')
-            .orderBy('timestamp', descending: true)
-            .limit(7)
+            .doc('sleep_hours')
             .snapshots(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
+          if (!snapshot.hasData || !snapshot.data!.exists) {
             return Container();
           }
 
-          List<FlSpot> sleepData = [];
-          double totalSleepTime = 0;
+          final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+          List<FlSpot> bedtimeSpots = [];
+          List<int> bedtimeMinutes = [];
           int validEntries = 0;
 
-          final documents = snapshot.data!.docs.reversed.toList();
-          for (int i = 0; i < documents.length; i++) {
-            final sleep = (documents[i].data() as Map)['sleep_hours'] ?? 0.0;
-            if (sleep > 0) {
-              sleepData.add(FlSpot(i.toDouble(), sleep.toDouble()));
-              totalSleepTime += sleep;
+          for (int i = 0; i < last7Days.length; i++) {
+            final date = last7Days[i];
+            final bedtime = data[date]?.toString() ?? '';
+            if (bedtime.isNotEmpty) {
+              // Parse bedtime (e.g., "0200" or "2130")
+              final hours = int.tryParse(bedtime.substring(0, 2)) ?? 0;
+              final minutes = int.tryParse(bedtime.substring(2)) ?? 0;
+              final totalMinutes = hours * 60 + minutes;
+
+              // Adjust for bedtimes from midnight (00:00) to 10:00 AM
+              final isNextDay = hours >= 0 && hours < 10; // 00:00 to 10:00 AM
+              final adjustedMinutes = isNextDay
+                  ? totalMinutes +
+                      1440 // Add 24 hours if between 00:00 and 10:00 AM
+                  : totalMinutes;
+
+              bedtimeSpots
+                  .add(FlSpot(i.toDouble(), adjustedMinutes.toDouble()));
+              bedtimeMinutes.add(adjustedMinutes);
               validEntries++;
             }
           }
 
-          final averageSleepTime =
-              validEntries > 0 ? totalSleepTime / validEntries : 0;
+          // Calculate average bedtime in minutes
+          final averageBedtimeMinutes = validEntries > 0
+              ? bedtimeMinutes.reduce((a, b) => a + b) ~/ validEntries
+              : 0;
+
+          // Convert average bedtime back to HH:mm format
+          final averageHours = (averageBedtimeMinutes % 1440) ~/ 60;
+          final averageMinutes = averageBedtimeMinutes % 60;
+          final averageBedtime =
+              '${averageHours.toString().padLeft(2, '0')}:${averageMinutes.toString().padLeft(2, '0')}';
 
           return Container(
             padding: const EdgeInsets.all(16),
@@ -518,11 +581,19 @@ class HomeContentScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Avg: ${averageSleepTime.toStringAsFixed(1)} hrs",
+                        DateFormat('h:mm a')
+                            .format(DateFormat('HH:mm').parse(averageBedtime)),
                         style: GoogleFonts.poppins(
-                          fontSize: 24,
+                          fontSize: 28,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        "Avg Bedtime",
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.grey[400],
                         ),
                       ),
                     ],
@@ -540,16 +611,17 @@ class HomeContentScreen extends StatelessWidget {
                         gridData: FlGridData(show: false),
                         titlesData: FlTitlesData(show: false),
                         borderData: FlBorderData(show: false),
+                        lineTouchData: LineTouchData(
+                            enabled: false), // Disable interactivity
                         lineBarsData: [
                           LineChartBarData(
-                            spots: sleepData,
-                            isCurved: true,
-                            color: Colors.blue[400]!,
+                            spots: bedtimeSpots,
+                            isCurved: false, // Sharp lines
+                            color: Colors.deepOrange,
                             barWidth: 2,
-                            dotData: FlDotData(show: false),
+                            dotData: FlDotData(show: false), // Hide dots
                             belowBarData: BarAreaData(
-                              show: true,
-                              color: Colors.blue.withOpacity(0.1),
+                              show: false,
                             ),
                           ),
                         ],
@@ -593,10 +665,19 @@ class HomeContentScreen extends StatelessWidget {
               children: snapshot.data!.docs.map((doc) {
                 final data = doc.data() as Map<String, dynamic>;
                 return GestureDetector(
-                  onTap: () {
-                    if (data['articleUrl'] != null &&
-                        data['articleUrl'].isNotEmpty) {
-                      launchUrl(data['articleUrl']);
+                  onTap: () async {
+                    final urlString = data['articleUrl'];
+                    if (urlString != null && urlString.isNotEmpty) {
+                      Uri? uri = Uri.tryParse(urlString);
+                      if (uri != null) {
+                        // Specify Chrome as the browser
+                        await launchUrl(uri,
+                            mode: LaunchMode.externalApplication);
+                      } else {
+                        print("Invalid URL: $urlString");
+                      }
+                    } else {
+                      print("No URL found");
                     }
                   },
                   child: Container(
@@ -617,21 +698,32 @@ class HomeContentScreen extends StatelessWidget {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            data['imageUrl'] ?? '',
-                            width: double.infinity,
-                            height: 150,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                width: double.infinity,
-                                height: 150,
-                                color: Colors.grey[800],
-                                child:
-                                    Icon(Icons.image, color: Colors.grey[600]),
-                              );
-                            },
-                          ),
+                          child: data['imageUrl'] != null &&
+                                  Uri.tryParse(data['imageUrl'])
+                                          ?.hasAbsolutePath ==
+                                      true
+                              ? Image.network(
+                                  data['imageUrl'],
+                                  width: double.infinity,
+                                  height: 150,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      width: double.infinity,
+                                      height: 150,
+                                      color: Colors.grey[800],
+                                      child: Icon(Icons.image,
+                                          color: Colors.grey[600]),
+                                    );
+                                  },
+                                )
+                              : Container(
+                                  width: double.infinity,
+                                  height: 150,
+                                  color: Colors.grey[800],
+                                  child: Icon(Icons.image,
+                                      color: Colors.grey[600]),
+                                ),
                         ),
                         Padding(
                           padding: const EdgeInsets.all(16),
@@ -650,7 +742,7 @@ class HomeContentScreen extends StatelessWidget {
                               Text(
                                 data['subtitle'] ?? '',
                                 style: GoogleFonts.poppins(
-                                  fontSize: 14,
+                                  fontSize: 12,
                                   color: Colors.grey[400],
                                 ),
                               ),

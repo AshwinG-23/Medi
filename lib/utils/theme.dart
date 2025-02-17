@@ -27,7 +27,7 @@ final ThemeData darkTheme = ThemeData(
   brightness: Brightness.dark,
   primaryColor: Colors.black,
   colorScheme: const ColorScheme.dark(
-    primary: Colors.orange,
+    primary: Colors.deepOrange,
     secondary: Colors.deepOrange,
     surface: Color(0xFF212121),
   ),

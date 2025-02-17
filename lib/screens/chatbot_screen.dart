@@ -271,7 +271,7 @@ class ChatScreenState extends State<ChatScreen> {
                             hintStyle: TextStyle(color: Colors.grey),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(20),
-                              borderSide: BorderSide(color: Colors.orange),
+                              borderSide: BorderSide(color: Colors.deepOrange),
                             ),
                           ),
                         ),
@@ -279,7 +279,7 @@ class ChatScreenState extends State<ChatScreen> {
                       IconButton(
                         icon: Icon(
                           Icons.send,
-                          color: Colors.orange,
+                          color: Colors.deepOrange,
                         ),
                         onPressed: _sendMessage,
                       ),

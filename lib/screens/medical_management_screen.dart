@@ -139,9 +139,169 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
     }
   }
 
+  void _editPrescription(Map<String, dynamic> prescription) {
+    final nameController = TextEditingController(text: prescription['name']);
+    final tagsController =
+        TextEditingController(text: (prescription['tags'] as List).join(', '));
+
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Prevent closing by tapping outside
+      builder: (BuildContext dialogContext) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        title: const Text(
+          'Edit Prescription',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Enter prescription name',
+                hintStyle: TextStyle(color: Colors.grey[400]),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.grey[700]!),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: tagsController,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Enter tags separated by commas',
+                hintStyle: TextStyle(color: Colors.grey[400]),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.grey[700]!),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (nameController.text.trim().isNotEmpty &&
+                  tagsController.text.trim().isNotEmpty) {
+                final name = nameController.text.trim();
+                final tags = tagsController.text
+                    .split(',')
+                    .map((e) => e.trim().toLowerCase())
+                    .where((e) => e.isNotEmpty)
+                    .toList();
+
+                final updatedPrescription = {
+                  ...prescription,
+                  'name': name,
+                  'tags': tags,
+                };
+
+                await _prescriptionBox?.put(
+                    prescription['id'], updatedPrescription);
+
+                // Close dialog using dialogContext
+                if (mounted) {
+                  Navigator.of(dialogContext).pop();
+
+                  // Show success message
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Prescription updated successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+
+                  // Force refresh
+                  setState(() {});
+                }
+              } else {
+                // Show error for empty fields
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please enter a name and at least one tag'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child:
+                const Text('Save', style: TextStyle(color: Colors.deepOrange)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deletePrescription(Map<String, dynamic> prescription) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        title: const Text(
+          'Delete Prescription',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Are you sure you want to delete this prescription?',
+          style: TextStyle(color: Colors.white),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () async {
+              await _prescriptionBox?.delete(prescription['id']);
+
+              // Close dialog using dialogContext
+              if (mounted) {
+                Navigator.of(dialogContext).pop();
+
+                // Show success message
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Prescription deleted successfully'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+
+                // Force refresh
+                setState(() {});
+              }
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _handleImageSelection(ImageSource source) async {
-    Permission permission =
-        source == ImageSource.camera ? Permission.camera : Permission.photos;
+    Permission permission;
+    if (source == ImageSource.camera) {
+      // Request camera permission for camera
+      permission = Permission.camera;
+    } else {
+      // Request storage permission for gallery
+      if (Platform.isAndroid) {
+        // On Android, use `storage` permission for gallery access
+        permission = Permission.storage;
+      } else if (Platform.isIOS) {
+        // On iOS, use `photos` permission for gallery access
+        permission = Permission.photos;
+      } else {
+        // Fallback for other platforms
+        permission = Permission.storage;
+      }
+    }
 
     var status = await permission.status;
     if (!status.isGranted) {
@@ -289,38 +449,75 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.description_outlined,
-                    color: const Color(0xFFE38233), size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
+                // First row: Icon + Title + Edit/Delete buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.description_outlined,
+                            color: Colors.deepOrange, size: 20),
+                        const SizedBox(width: 4),
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        IconButton(
+                          icon:
+                              const Icon(Icons.edit, color: Colors.deepOrange),
+                          onPressed: () => _editPrescription(prescription),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () => _deletePrescription(prescription),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 4), // Space between rows
+
+                // Second row: Tags on the left, Date on the right
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
                         tags.join(', '),
                         style: TextStyle(
                           color: Colors.grey[500],
                           fontSize: 12,
                         ),
+                        overflow: TextOverflow.ellipsis, // Prevents overflow
                       ),
-                    ],
-                  ),
+                    ),
+                    Text(
+                      date,
+                      style: TextStyle(
+                        color: Colors.grey[500],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
-                Text(date, style: TextStyle(color: Colors.grey[500])),
               ],
             ),
           ),
+
+          // Move the date below the options in a smaller font
+
           Padding(
             padding: const EdgeInsets.all(16), // Add padding around the Stack
             child: Stack(
@@ -339,7 +536,7 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
                   child: isPdf
                       ? Center(
                           child: Icon(Icons.picture_as_pdf,
-                              color: const Color(0xFFE38233), size: 64),
+                              color: Colors.deepOrange, size: 64),
                         )
                       : ClipRRect(
                           borderRadius: BorderRadius.circular(
@@ -369,12 +566,12 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(isPdf ? Icons.picture_as_pdf : Icons.list_alt,
-                            color: Colors.orange),
+                            color: Colors.deepOrange),
                         const SizedBox(width: 8),
                         Text(
                           isPdf ? "View PDF" : "View Document",
                           style: TextStyle(
-                            color: Colors.orange,
+                            color: Colors.deepOrange,
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
@@ -403,8 +600,10 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
               padding: const EdgeInsets.all(16.0),
               child: Row(
                 children: [
+                  Icon(Icons.description_outlined,
+                      size: 30, color: Colors.deepOrange),
                   const Text(
-                    'Medical Prescriptions',
+                    '\t Medical Prescriptions',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w600,
@@ -432,7 +631,7 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
                       margin: const EdgeInsets.all(8),
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE38233),
+                        color: Colors.deepOrange,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child:
@@ -513,10 +712,17 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
           ),
           FloatingActionButton(
             heroTag: 'main',
-            backgroundColor: const Color(0xFFE38233),
-            child: AnimatedIcon(
-              icon: AnimatedIcons.menu_close,
-              progress: _animationController,
+            backgroundColor: Colors.deepOrange,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                return ScaleTransition(scale: animation, child: child);
+              },
+              child: _isExpanded
+                  ? const Icon(Icons.close,
+                      color: Colors.black, key: ValueKey('close'))
+                  : const Icon(Icons.add,
+                      color: Colors.black, key: ValueKey('add')),
             ),
             onPressed: () {
               setState(() {
@@ -528,7 +734,7 @@ class _MedicalManagementScreenState extends State<MedicalManagementScreen>
                 }
               });
             },
-          ),
+          )
         ],
       ),
     );

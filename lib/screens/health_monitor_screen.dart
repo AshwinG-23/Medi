@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../services/api_service2.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 
@@ -59,11 +60,13 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
 
   Widget _buildDateSlider() {
     final now = DateTime.now();
-    final initialScrollIndex = 7;
 
     return Container(
-      height: 80,
-      color: Colors.black,
+      height: 120, // Increased height to accommodate shadows
+      padding:
+          EdgeInsets.symmetric(horizontal: 8, vertical: 10), // Added spacing
+      color: const Color.fromARGB(255, 30, 30, 30),
+      clipBehavior: Clip.none, // Prevents child widgets from being clipped
       child: ListView.builder(
         controller: _dateSliderController,
         scrollDirection: Axis.horizontal,
@@ -75,56 +78,68 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
           final dayNum = date.day.toString();
           final isAfterToday = date.isAfter(now);
 
-          return GestureDetector(
-            onTap: isAfterToday
-                ? null
-                : () {
-                    setState(() {
-                      selectedDate = date;
-                    });
-                    Future.delayed(Duration(milliseconds: 100), () {
-                      _dateSliderController.animateTo(
-                        index * 20.0,
-                        duration: Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                      );
-                    });
-                  },
-            child: AnimatedContainer(
-              duration: Duration(milliseconds: 300),
-              width: 50,
-              margin: EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? Colors.deepOrange
-                    : isAfterToday
-                        ? Colors.grey[800]
-                        : Colors.grey[900],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    dayName,
-                    style: TextStyle(
-                      color: isAfterToday
-                          ? Colors.grey[600]
-                          : (isSelected ? Colors.white : Colors.grey),
-                      fontSize: 12,
+          return Padding(
+            padding: EdgeInsets.symmetric(
+                horizontal: 4, vertical: 5), // Space between items
+            child: GestureDetector(
+              onTap: isAfterToday
+                  ? null
+                  : () {
+                      setState(() {
+                        selectedDate = date;
+                      });
+                      Future.delayed(Duration(milliseconds: 100), () {
+                        _dateSliderController.animateTo(
+                          index * 60.0, // Adjust scroll distance
+                          duration: Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      });
+                    },
+              child: AnimatedContainer(
+                duration: Duration(milliseconds: 300),
+                width: 55,
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? Colors.deepOrange
+                      : isAfterToday
+                          ? Colors.grey[800]
+                          : Colors.grey[900],
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.4), // Stronger shadow
+                      spreadRadius: 2,
+                      blurRadius: 6,
+                      offset: const Offset(2, 4),
                     ),
-                  ),
-                  Text(
-                    dayNum,
-                    style: TextStyle(
-                      color: isAfterToday
-                          ? Colors.grey[600]
-                          : (isSelected ? Colors.white : Colors.grey),
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min, // Prevents cutting
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      dayName,
+                      style: TextStyle(
+                        color: isAfterToday
+                            ? Colors.grey[600]
+                            : (isSelected ? Colors.white : Colors.grey),
+                        fontSize: 12,
+                      ),
                     ),
-                  ),
-                ],
+                    Text(
+                      dayNum,
+                      style: TextStyle(
+                        color: isAfterToday
+                            ? Colors.grey[600]
+                            : (isSelected ? Colors.white : Colors.grey),
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -230,27 +245,21 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
   }
 
   Widget _buildFoodCard() {
-    return StreamBuilder<QuerySnapshot>(
+    final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate);
+
+    return StreamBuilder<DocumentSnapshot>(
       stream: _firestore
           .collection('users')
           .doc(_auth.currentUser?.uid)
           .collection('medical_tracker')
-          .doc('calories')
-          .collection(DateFormat('yyyy-MM-dd').format(selectedDate))
+          .doc('calorie')
           .snapshots(),
       builder: (context, snapshot) {
         int totalCalories = 0;
-        List<QueryDocumentSnapshot> calorieEntries = [];
 
-        if (snapshot.hasData) {
-          calorieEntries = snapshot.data!.docs;
-          totalCalories = calorieEntries.fold<int>(
-            0,
-            (sum, doc) {
-              final data = doc.data() as Map<String, dynamic>;
-              return sum + (data['calories'] as int);
-            },
-          );
+        if (snapshot.hasData && snapshot.data!.exists) {
+          final data = snapshot.data!.data() as Map<String, dynamic>;
+          totalCalories = data[dateStr] ?? 0;
         }
 
         return _buildExpandableCard(
@@ -349,6 +358,32 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
     );
   }
 
+  Future<List<BarChartGroupData>> _getCalorieBars() async {
+    final List<BarChartGroupData> bars = [];
+    final List<DateTime> dates =
+        _getWeekDates().toList(); // Earlier dates on the left
+    final DateTime now = DateTime.now();
+
+    for (int i = 0; i < dates.length; i++) {
+      final dateStr = DateFormat('yyyy-MM-dd').format(dates[i]);
+      final calories = await _getCaloriesForDate(dateStr);
+      final isToday = DateUtils.isSameDay(dates[i], now);
+
+      bars.add(BarChartGroupData(
+        x: i,
+        barRods: [
+          BarChartRodData(
+            toY: calories.toDouble(),
+            color: isToday ? Colors.deepOrange : Colors.grey,
+            width: 30, // Width of each bar
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ],
+      ));
+    }
+    return bars;
+  }
+
   Future<void> _updateCalories(int calories) async {
     final user = _auth.currentUser;
     if (user != null) {
@@ -357,12 +392,10 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
           .collection('users')
           .doc(user.uid)
           .collection('medical_tracker')
-          .doc('calories')
-          .collection(dateStr)
-          .add({
-        'calories': calories,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
+          .doc('calorie')
+          .set({
+        dateStr: FieldValue.increment(calories),
+      }, SetOptions(merge: true));
     }
   }
 
@@ -370,77 +403,58 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
     final user = _auth.currentUser;
     if (user != null) {
       final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate);
-      final sleepTime = '${time.hour}:${time.minute}';
+      final sleepTime =
+          '${time.hour.toString().padLeft(2, '0')}${time.minute.toString().padLeft(2, '0')}';
       await _firestore
           .collection('users')
           .doc(user.uid)
           .collection('medical_tracker')
-          .doc('sleep')
-          .collection(dateStr)
-          .add({
-        'sleep_time': sleepTime,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
+          .doc('sleep_hours')
+          .set({
+        dateStr: sleepTime,
+      }, SetOptions(merge: true));
     }
-  }
-
-  Future<List<BarChartGroupData>> _getCalorieBars() async {
-    final List<BarChartGroupData> bars = [];
-    final List<DateTime> dates = _getWeekDates();
-    for (int i = 0; i < dates.length; i++) {
-      final dateStr = DateFormat('yyyy-MM-dd').format(dates[i]);
-      final calories = await _getCaloriesForDate(dateStr);
-      bars.add(BarChartGroupData(
-        x: i,
-        barRods: [
-          BarChartRodData(
-            toY: calories.toDouble(),
-            color: Colors.deepOrange,
-          ),
-        ],
-      ));
-    }
-    return bars;
   }
 
   Future<int> _getCaloriesForDate(String dateStr) async {
     final user = _auth.currentUser;
     if (user != null) {
-      final querySnapshot = await _firestore
+      final docSnapshot = await _firestore
           .collection('users')
           .doc(user.uid)
           .collection('medical_tracker')
-          .doc('calories')
-          .collection(dateStr)
+          .doc('calorie')
           .get();
 
-      if (querySnapshot.docs.isNotEmpty) {
-        return querySnapshot.docs.fold<int>(
-          0,
-          (sum, doc) {
-            final data = doc.data();
-            return sum + (data['calories'] as int);
-          },
-        );
+      if (docSnapshot.exists) {
+        final data = docSnapshot.data() as Map<String, dynamic>;
+        return data[dateStr] ?? 0;
       }
     }
     return 0;
   }
 
   Widget _buildSleepCard() {
-    return StreamBuilder<QuerySnapshot>(
+    final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate);
+
+    return StreamBuilder<DocumentSnapshot>(
       stream: _firestore
           .collection('users')
           .doc(_auth.currentUser?.uid)
           .collection('medical_tracker')
-          .doc('sleep')
-          .collection(DateFormat('yyyy-MM-dd').format(selectedDate))
+          .doc('sleep_hours')
           .snapshots(),
       builder: (context, snapshot) {
         String sleepTime = "Not Entered";
-        if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-          final data = snapshot.data!.docs.first.data() as Map<String, dynamic>;
-          sleepTime = data['sleep_time'] as String;
+        if (snapshot.hasData && snapshot.data!.exists) {
+          final data = snapshot.data!.data() as Map<String, dynamic>;
+          final storedTime = data[dateStr] as String?;
+          if (storedTime != null) {
+            final hour = int.parse(storedTime.substring(0, 2));
+            final minute = int.parse(storedTime.substring(2, 4));
+            final timeOfDay = TimeOfDay(hour: hour, minute: minute);
+            sleepTime = timeOfDay.format(context); // Convert to 12-hour format
+          }
         }
 
         return _buildExpandableCard(
@@ -452,7 +466,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Today\'s Sleep Time: $sleepTime',
+                    'Today\'s Bedtime:  $sleepTime',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 18,
@@ -499,9 +513,26 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
                             LineChartBarData(
                               spots: snapshot.data ?? [],
                               isCurved: false,
-                              color: Colors.deepOrange,
+                              color: Colors
+                                  .deepOrange, // Default color for the line
                               barWidth: 3,
-                              dotData: FlDotData(show: false),
+                              dotData: FlDotData(
+                                show: true,
+                                getDotPainter: (spot, percent, barData, index) {
+                                  final isToday = index ==
+                                      _getWeekDates().indexWhere((date) =>
+                                          DateUtils.isSameDay(
+                                              date, DateTime.now()));
+                                  return FlDotCirclePainter(
+                                    radius: 4,
+                                    color: isToday
+                                        ? Colors.deepOrange
+                                        : Colors.grey,
+                                    strokeWidth: 2,
+                                    strokeColor: Colors.transparent,
+                                  );
+                                },
+                              ),
                             ),
                           ],
                         ),
@@ -520,35 +551,57 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
   Future<List<FlSpot>> _getSleepSpots() async {
     final List<FlSpot> spots = [];
     final List<DateTime> dates = _getWeekDates();
+    final DateTime now = DateTime.now();
+
     for (int i = 0; i < dates.length; i++) {
       final dateStr = DateFormat('yyyy-MM-dd').format(dates[i]);
       final sleepTime = await _getSleepTimeForDate(dateStr);
+      final isToday = DateUtils.isSameDay(dates[i], now);
+
       spots.add(FlSpot(i.toDouble(), sleepTime.toDouble()));
     }
     return spots;
   }
 
-  Future<int> _getSleepTimeForDate(String dateStr) async {
+  Future<double> _getSleepTimeForDate(String dateStr) async {
     final user = _auth.currentUser;
     if (user != null) {
-      final querySnapshot = await _firestore
+      final docSnapshot = await _firestore
           .collection('users')
           .doc(user.uid)
           .collection('medical_tracker')
-          .doc('sleep')
-          .collection(dateStr)
+          .doc('sleep_hours')
           .get();
 
-      if (querySnapshot.docs.isNotEmpty) {
-        final sleepTime =
-            querySnapshot.docs.first.data()['sleep_time'] as String;
-        final timeParts = sleepTime.split(':');
-        final hour = int.parse(timeParts[0]);
-        final minute = int.parse(timeParts[1]);
-        return hour + (minute / 60).round();
+      if (docSnapshot.exists) {
+        final data = docSnapshot.data() as Map<String, dynamic>;
+        final storedTime = data[dateStr] as String?;
+        if (storedTime != null) {
+          final hour = int.parse(storedTime.substring(0, 2));
+          final minute = int.parse(storedTime.substring(2, 4));
+
+          // Convert bedtime to minutes since midnight
+          final bedtimeMinutes = hour * 60 + minute;
+
+          // Baseline is 4 PM (16:00) in minutes
+          final baselineMinutes = 16 * 60;
+
+          // Adjust bedtime relative to baseline
+          double adjustedBedtime;
+          if (bedtimeMinutes < baselineMinutes) {
+            // Bedtime is before 4 PM (e.g., 2 AM), treat as next day
+            adjustedBedtime = bedtimeMinutes + 1440; // Add 24 hours
+          } else {
+            // Bedtime is after 4 PM, treat as same day
+            adjustedBedtime = bedtimeMinutes.toDouble();
+          }
+
+          // Return the adjusted bedtime in minutes
+          return adjustedBedtime;
+        }
       }
     }
-    return 0;
+    return 0.0; // Default value if no data is found
   }
 
   Widget _buildRoutineCard() {
@@ -616,17 +669,44 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 30, 30, 30),
+      appBar: AppBar(
+        backgroundColor: const Color.fromARGB(255, 30, 30, 30),
+        toolbarHeight: 50, // Dark background color
+        title: Row(
+          children: [
+            SvgPicture.asset(
+              'lib/assets/icon _Cardiogram_.svg',
+              width: 22,
+              height: 22,
+              color: Colors.deepOrange,
+            ),
+            const SizedBox(width: 8), // Add spacing between icon and title
+            const Text(
+              'Health Monitor',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
       body: SafeArea(
         child: Column(
           children: [
             _buildDateSlider(),
+            SizedBox(height: 20),
             Expanded(
               child: ListView(
                 children: [
                   _buildCaloriePredictorCard(),
+                  SizedBox(height: 20),
                   _buildFoodCard(),
+                  SizedBox(height: 20),
                   _buildSleepCard(),
+                  SizedBox(height: 20),
                   _buildRoutineCard(),
+                  SizedBox(height: 20),
                 ],
               ),
             ),
