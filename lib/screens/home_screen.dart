@@ -250,14 +250,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.edit, color: Colors.white),
-              title: const Text('Edit Profile',
-                  style: TextStyle(color: Colors.white)),
-              onTap: () {
-                // Navigate to edit profile screen
-              },
-            ),
-            ListTile(
               leading: const Icon(Icons.logout, color: Colors.white),
               title:
                   const Text('Logout', style: TextStyle(color: Colors.white)),

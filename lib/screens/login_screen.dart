@@ -3,8 +3,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/gestures.dart';
 import 'home_screen.dart';
 import 'signup_screen.dart';
+import 'privacy_policy_screen.dart';
+import 'termsofservice_screen.dart';
 import 'questionnaire_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -284,10 +287,48 @@ class _LoginScreenState extends State<LoginScreen> {
                         },
                       ),
                     ),
-                    const Expanded(
-                      child: Text(
-                        "I agree with Terms and Privacy Policy",
-                        style: TextStyle(color: Colors.grey),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          // Handle tap on the entire text area (optional)
+                        },
+                        child: Text.rich(
+                          TextSpan(
+                            style: TextStyle(color: Colors.grey),
+                            children: [
+                              TextSpan(text: "I agree with "),
+                              TextSpan(
+                                text: "Terms of Service",
+                                style: TextStyle(color: Colors.blue),
+                                recognizer: TapGestureRecognizer()
+                                  ..onTap = () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            TermsOfServiceScreen(),
+                                      ),
+                                    );
+                                  },
+                              ),
+                              TextSpan(text: " and "),
+                              TextSpan(
+                                text: "Privacy Policy",
+                                style: TextStyle(color: Colors.blue),
+                                recognizer: TapGestureRecognizer()
+                                  ..onTap = () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            PrivacyPolicyScreen(),
+                                      ),
+                                    );
+                                  },
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ],

@@ -27,8 +27,11 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
       TextEditingController();
   final TextEditingController _calorieIntakeController =
       TextEditingController();
+  final TextEditingController _heightController = TextEditingController();
+  final TextEditingController _weightController = TextEditingController();
   TimeOfDay? _selectedSleepTime;
   bool showCalorieInput = false;
+  bool showBMIInput = false;
 
   String predictedCalories = '';
   String recommendedRoutine = 'Waiting For more information';
@@ -62,11 +65,10 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
     final now = DateTime.now();
 
     return Container(
-      height: 120, // Increased height to accommodate shadows
-      padding:
-          EdgeInsets.symmetric(horizontal: 8, vertical: 10), // Added spacing
+      height: 120,
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       color: const Color.fromARGB(255, 30, 30, 30),
-      clipBehavior: Clip.none, // Prevents child widgets from being clipped
+      clipBehavior: Clip.none,
       child: ListView.builder(
         controller: _dateSliderController,
         scrollDirection: Axis.horizontal,
@@ -79,8 +81,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
           final isAfterToday = date.isAfter(now);
 
           return Padding(
-            padding: EdgeInsets.symmetric(
-                horizontal: 4, vertical: 5), // Space between items
+            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 5),
             child: GestureDetector(
               onTap: isAfterToday
                   ? null
@@ -88,9 +89,10 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
                       setState(() {
                         selectedDate = date;
                       });
+                      _getRecommendedRoutine();
                       Future.delayed(Duration(milliseconds: 100), () {
                         _dateSliderController.animateTo(
-                          index * 60.0, // Adjust scroll distance
+                          index * 60.0,
                           duration: Duration(milliseconds: 300),
                           curve: Curves.easeInOut,
                         );
@@ -108,7 +110,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.4), // Stronger shadow
+                      color: Colors.black.withOpacity(0.4),
                       spreadRadius: 2,
                       blurRadius: 6,
                       offset: const Offset(2, 4),
@@ -116,7 +118,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
                   ],
                 ),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min, // Prevents cutting
+                  mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
@@ -360,8 +362,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
 
   Future<List<BarChartGroupData>> _getCalorieBars() async {
     final List<BarChartGroupData> bars = [];
-    final List<DateTime> dates =
-        _getWeekDates().toList(); // Earlier dates on the left
+    final List<DateTime> dates = _getWeekDates().toList();
     final DateTime now = DateTime.now();
 
     for (int i = 0; i < dates.length; i++) {
@@ -375,7 +376,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
           BarChartRodData(
             toY: calories.toDouble(),
             color: isToday ? Colors.deepOrange : Colors.grey,
-            width: 30, // Width of each bar
+            width: 30,
             borderRadius: BorderRadius.circular(8),
           ),
         ],
@@ -453,7 +454,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
             final hour = int.parse(storedTime.substring(0, 2));
             final minute = int.parse(storedTime.substring(2, 4));
             final timeOfDay = TimeOfDay(hour: hour, minute: minute);
-            sleepTime = timeOfDay.format(context); // Convert to 12-hour format
+            sleepTime = timeOfDay.format(context);
           }
         }
 
@@ -513,8 +514,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
                             LineChartBarData(
                               spots: snapshot.data ?? [],
                               isCurved: false,
-                              color: Colors
-                                  .deepOrange, // Default color for the line
+                              color: Colors.deepOrange,
                               barWidth: 3,
                               dotData: FlDotData(
                                 show: true,
@@ -580,28 +580,21 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
           final hour = int.parse(storedTime.substring(0, 2));
           final minute = int.parse(storedTime.substring(2, 4));
 
-          // Convert bedtime to minutes since midnight
           final bedtimeMinutes = hour * 60 + minute;
-
-          // Baseline is 4 PM (16:00) in minutes
           final baselineMinutes = 16 * 60;
 
-          // Adjust bedtime relative to baseline
           double adjustedBedtime;
           if (bedtimeMinutes < baselineMinutes) {
-            // Bedtime is before 4 PM (e.g., 2 AM), treat as next day
-            adjustedBedtime = bedtimeMinutes + 1440; // Add 24 hours
+            adjustedBedtime = bedtimeMinutes + 1440;
           } else {
-            // Bedtime is after 4 PM, treat as same day
             adjustedBedtime = bedtimeMinutes.toDouble();
           }
 
-          // Return the adjusted bedtime in minutes
           return adjustedBedtime;
         }
       }
     }
-    return 0.0; // Default value if no data is found
+    return 0.0;
   }
 
   Widget _buildRoutineCard() {
@@ -617,11 +610,17 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
               size: 30.0,
             );
           } else if (snapshot.hasError) {
-            return Text('Error: ${snapshot.error}');
-          } else {
             return Text(
-              snapshot.data ?? 'No recommendations available.',
+              'Error: ${snapshot.error}',
               style: TextStyle(color: Colors.white),
+            );
+          } else {
+            return MarkdownBody(
+              data: snapshot.data ?? 'No recommendations available.',
+              styleSheet: MarkdownStyleSheet(
+                p: const TextStyle(color: Colors.white),
+              ),
+              softLineBreak: true,
             );
           }
         },
@@ -630,39 +629,199 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
   }
 
   Future<String> _getRecommendedRoutine() async {
-    final now = DateTime.now();
-    if (now.hour >= 0 && now.hour < 12 && lastRoutineFetchTime.day != now.day) {
-      final List<DateTime> dates = _getWeekDates();
-      final List<String> calorieData = [];
-      final List<String> sleepData = [];
+    final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate);
 
-      for (final date in dates) {
-        final dateStr = DateFormat('yyyy-MM-dd').format(date);
-        final calories = await _getCaloriesForDate(dateStr);
-        final sleepTime = await _getSleepTimeForDate(dateStr);
+    // Check if the routine is already stored in Firestore for the selected date
+    final user = _auth.currentUser;
+    if (user != null) {
+      final docSnapshot = await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('medical_tracker')
+          .doc('recroutine')
+          .get();
 
-        calorieData.add(calories.toString());
-        sleepData.add(sleepTime.toString());
+      if (docSnapshot.exists) {
+        final data = docSnapshot.data() as Map<String, dynamic>;
+        final storedRoutine = data[dateStr] as String?;
+        if (storedRoutine != null) {
+          return storedRoutine;
+        }
       }
-
-      final bmi = "25";
-      final calorieString = calorieData.join(',');
-      final sleepString = sleepData.join(',');
-
-      try {
-        final routine = await _apiService.getRecommendedRoutine(
-            bmi, calorieString, sleepString);
-        setState(() {
-          recommendedRoutine = routine;
-          lastRoutineFetchTime = now;
-        });
-        return routine;
-      } catch (e) {
-        return 'Error fetching recommendations: $e';
-      }
-    } else {
-      return recommendedRoutine;
     }
+
+    // If no routine is stored, fetch a new one
+    final List<DateTime> dates = _getWeekDates();
+    final List<String> calorieData = [];
+    final List<String> sleepData = [];
+
+    for (final date in dates) {
+      final dateStr = DateFormat('yyyy-MM-dd').format(date);
+      final calories = await _getCaloriesForDate(dateStr);
+      final sleepTime = await _getSleepTimeForDate(dateStr);
+
+      calorieData.add(calories.toString());
+      sleepData.add(sleepTime.toString());
+    }
+
+    final bmi = await _getBMI();
+    final calorieString = calorieData.join(',');
+    final sleepString = sleepData.join(',');
+
+    try {
+      final routine = await _apiService.getRecommendedRoutine(
+          bmi, calorieString, sleepString);
+
+      // Store the routine in Firestore for the selected date
+      if (user != null) {
+        await _firestore
+            .collection('users')
+            .doc(user.uid)
+            .collection('medical_tracker')
+            .doc('recroutine')
+            .set({
+          dateStr: routine,
+        }, SetOptions(merge: true));
+      }
+
+      return routine;
+    } catch (e) {
+      return 'Error fetching recommendations: $e';
+    }
+  }
+
+  Widget _buildBMICard() {
+    return _buildExpandableCard(
+      title: 'BMI Calculator',
+      icon: Icons.monitor_weight,
+      expandedContent: Column(
+        children: [
+          FutureBuilder<String>(
+            future: _getBMI(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return SpinKitThreeBounce(
+                  color: Colors.deepOrange,
+                  size: 30.0,
+                );
+              } else if (snapshot.hasError) {
+                return Text('Error: ${snapshot.error}');
+              } else {
+                final bmi = snapshot.data ?? 'N/A';
+                return Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'BMI: $bmi',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        IconButton(
+                          icon: AnimatedSwitcher(
+                            duration: Duration(milliseconds: 300),
+                            child: showBMIInput
+                                ? Icon(Icons.close, color: Colors.deepOrange)
+                                : Icon(Icons.edit, color: Colors.deepOrange),
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              showBMIInput = !showBMIInput;
+                              if (!showBMIInput) {
+                                _heightController.clear();
+                                _weightController.clear();
+                              }
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    AnimatedSize(
+                      duration: Duration(milliseconds: 300),
+                      child: showBMIInput
+                          ? Column(
+                              children: [
+                                TextField(
+                                  controller: _heightController,
+                                  style: TextStyle(color: Colors.white),
+                                  decoration: InputDecoration(
+                                    hintText: 'Enter height in cm',
+                                    hintStyle: TextStyle(color: Colors.grey),
+                                    border: InputBorder.none,
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                ),
+                                TextField(
+                                  controller: _weightController,
+                                  style: TextStyle(color: Colors.white),
+                                  decoration: InputDecoration(
+                                    hintText: 'Enter weight in kg',
+                                    hintStyle: TextStyle(color: Colors.grey),
+                                    border: InputBorder.none,
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                ),
+                                ElevatedButton(
+                                  onPressed: () async {
+                                    if (_heightController.text.isNotEmpty &&
+                                        _weightController.text.isNotEmpty) {
+                                      final height =
+                                          double.parse(_heightController.text);
+                                      final weight =
+                                          double.parse(_weightController.text);
+                                      await _updateBMI(height, weight);
+                                      setState(() {
+                                        showBMIInput = false;
+                                      });
+                                    }
+                                  },
+                                  child: Text('Calculate BMI'),
+                                ),
+                              ],
+                            )
+                          : SizedBox.shrink(),
+                    ),
+                  ],
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateBMI(double height, double weight) async {
+    final user = _auth.currentUser;
+    if (user != null) {
+      await _firestore.collection('users').doc(user.uid).set({
+        'height': height,
+        'weight': weight,
+      }, SetOptions(merge: true));
+    }
+  }
+
+  Future<String> _getBMI() async {
+    final user = _auth.currentUser;
+    if (user != null) {
+      final docSnapshot =
+          await _firestore.collection('users').doc(user.uid).get();
+      if (docSnapshot.exists) {
+        final data = docSnapshot.data() as Map<String, dynamic>;
+        final height = data['height'] as double?;
+        final weight = data['weight'] as double?;
+        if (height != null && weight != null && height > 0) {
+          final bmi =
+              (weight / ((height / 100) * (height / 100))).toStringAsFixed(2);
+          return bmi;
+        }
+      }
+    }
+    return 'N/A';
   }
 
   @override
@@ -671,7 +830,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
       backgroundColor: const Color.fromARGB(255, 30, 30, 30),
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 30, 30, 30),
-        toolbarHeight: 50, // Dark background color
+        toolbarHeight: 50,
         title: Row(
           children: [
             SvgPicture.asset(
@@ -680,7 +839,7 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
               height: 22,
               color: Colors.deepOrange,
             ),
-            const SizedBox(width: 8), // Add spacing between icon and title
+            const SizedBox(width: 8),
             const Text(
               'Health Monitor',
               style: TextStyle(
@@ -706,6 +865,8 @@ class _HealthMonitorScreenState extends State<HealthMonitorScreen> {
                   _buildSleepCard(),
                   SizedBox(height: 20),
                   _buildRoutineCard(),
+                  SizedBox(height: 20),
+                  _buildBMICard(),
                   SizedBox(height: 20),
                 ],
               ),

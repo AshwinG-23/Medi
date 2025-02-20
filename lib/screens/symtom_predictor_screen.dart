@@ -57,6 +57,8 @@ class _SymptomPredictorScreenState extends State<SymptomPredictorScreen> {
         });
         _fetchPreviousAnalysis();
       }
+
+      _controller.clear();
     } catch (e) {
       setState(() {
         _response = 'Error analyzing symptoms. Please try again.';
@@ -118,7 +120,7 @@ class _SymptomPredictorScreenState extends State<SymptomPredictorScreen> {
                     color: const Color.fromARGB(255, 30, 30, 30),
                     child: Center(
                       child: Image.asset(
-                        'lib/assets/chatbot_logo.png',
+                        'lib/assets/logo2.png',
                         height: 100,
                         width: 200,
                         fit: BoxFit.contain,
@@ -209,24 +211,51 @@ class _SymptomPredictorScreenState extends State<SymptomPredictorScreen> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: TextField(
-                          controller: _controller,
-                          style: TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            hintText: 'Describe your symptoms...',
-                            hintStyle: TextStyle(color: Colors.grey),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(20),
-                              borderSide: BorderSide(color: Colors.deepOrange),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Colors.purple, Colors.orange],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          padding: const EdgeInsets.all(2), // Border width
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: const Color.fromARGB(255, 30, 30, 30),
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            child: TextField(
+                              controller: _controller,
+                              style: TextStyle(color: Colors.white),
+                              decoration: InputDecoration(
+                                hintText: 'Describe your symptoms...',
+                                hintStyle: TextStyle(color: Colors.grey),
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 14),
+                              ),
                             ),
                           ),
                         ),
                       ),
                       SizedBox(width: 10),
-                      FloatingActionButton(
-                        onPressed: _predictSymptoms,
-                        backgroundColor: Colors.deepOrange,
-                        child: Icon(Icons.send, color: Colors.white),
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.purple, Colors.orange],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          shape: BoxShape.circle,
+                        ),
+                        child: FloatingActionButton(
+                          onPressed: _predictSymptoms,
+                          backgroundColor: Colors.transparent,
+                          elevation: 0,
+                          child: Icon(Icons.arrow_upward, color: Colors.white),
+                        ),
                       ),
                     ],
                   ),

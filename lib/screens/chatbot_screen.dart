@@ -267,7 +267,7 @@ class ChatScreenState extends State<ChatScreen> {
                           controller: _controller,
                           style: TextStyle(color: Colors.white),
                           decoration: InputDecoration(
-                            hintText: 'Describe your symptoms...',
+                            hintText: 'Let me know your concern',
                             hintStyle: TextStyle(color: Colors.grey),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(20),
